@@ -1,13 +1,11 @@
 import type { MyProfile } from '@muso/shared';
-import { useMutation } from '@tanstack/react-query';
-import { router } from 'expo-router';
 import type { ReactNode } from 'react';
 import { View } from 'react-native';
 import { AppText, ErrorState, FormError, LoadingState, Screen } from '@/components/ui';
-import { api, errorMessage } from '@/services/api';
+import { errorMessage } from '@/services/api';
 import { useTheme } from '@/theme';
-import { nextStepRoute, stepProgress, type OnboardingStep } from './onboarding-steps';
-import { useApplyProfile, useMe } from './use-me';
+import type { OnboardingStep } from './onboarding-steps';
+import { useOnboardingStep } from './use-onboarding-step';
 
 interface Props {
   step: OnboardingStep;
@@ -24,23 +22,7 @@ interface Props {
 /** Shared chrome + navigation for onboarding steps: progress, loading/error, next/finish. */
 export function OnboardingStepScreen({ step, title, body, children }: Props) {
   const t = useTheme();
-  const me = useMe();
-  const apply = useApplyProfile();
-  const finish = useMutation({
-    mutationFn: () => api.me.completeOnboarding(),
-    // Flipping `onboarded` makes the root layout swap to the main app.
-    onSuccess: apply,
-  });
-
-  const onSaved = (p: MyProfile) => {
-    const next = nextStepRoute(step, p.roles);
-    if (next) router.push(next);
-    else finish.mutate();
-  };
-
-  const roles = me.data?.roles ?? ['SUPPORTER'];
-  const { index, total } = stepProgress(step, roles);
-  const isLast = me.data ? nextStepRoute(step, me.data.roles) === null : false;
+  const { me, finish, onSaved, index, total, isLast } = useOnboardingStep(step);
 
   return (
     <Screen

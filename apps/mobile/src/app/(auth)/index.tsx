@@ -11,10 +11,9 @@ import Animated, {
   withSpring,
 } from 'react-native-reanimated';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { MusoLogo, PosterButton } from '@/components/brand';
 import { Backdrop, Crown, Foreground, Sparks } from '@/features/welcome/Backdrop';
 import { HERO_ASPECT, HeroArt } from '@/features/welcome/HeroArt';
-import { MusoLogo } from '@/features/welcome/MusoLogo';
-import { PosterButton } from '@/features/welcome/PosterButton';
 import { useTheme } from '@/theme';
 
 const HEADLINE = [

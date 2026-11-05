@@ -1,13 +1,22 @@
-import { Pressable, StyleSheet, Text, View, type PressableProps } from 'react-native';
+import {
+  ActivityIndicator,
+  Pressable,
+  StyleSheet,
+  Text,
+  View,
+  type PressableProps,
+} from 'react-native';
 import Animated, { useAnimatedStyle, useSharedValue, withSpring } from 'react-native-reanimated';
 import { useTheme } from '@/theme';
 
-const SHADOW = 5;
+/** Offset of the hard "neobrutalist" shadow, shared by every poster surface. */
+export const POSTER_SHADOW = 5;
 
 export interface PosterButtonProps extends Omit<PressableProps, 'children' | 'style'> {
   label: string;
   variant?: 'lime' | 'white';
   arrow?: boolean;
+  loading?: boolean;
 }
 
 /** Chunky outlined button with a hard offset shadow; presses "into" the shadow. */
@@ -15,22 +24,30 @@ export function PosterButton({
   label,
   variant = 'lime',
   arrow = false,
+  loading = false,
+  disabled,
   onPressIn,
   onPressOut,
   ...rest
 }: PosterButtonProps) {
   const t = useTheme();
+  const isDisabled = !!disabled || loading;
   const press = useSharedValue(0);
   const faceStyle = useAnimatedStyle(() => ({
-    transform: [{ translateX: press.value * SHADOW }, { translateY: press.value * SHADOW }],
+    transform: [
+      { translateX: press.value * POSTER_SHADOW },
+      { translateY: press.value * POSTER_SHADOW },
+    ],
   }));
 
   return (
     <Pressable
       // Spread first so <Link asChild> can't override our styling.
       {...rest}
+      disabled={isDisabled}
       accessibilityRole="button"
       accessibilityLabel={label}
+      accessibilityState={{ disabled: isDisabled, busy: loading }}
       onPressIn={(e) => {
         press.value = withSpring(1, { damping: 15, stiffness: 400 });
         onPressIn?.(e);
@@ -39,7 +56,7 @@ export function PosterButton({
         press.value = withSpring(0, { damping: 12, stiffness: 300 });
         onPressOut?.(e);
       }}
-      style={styles.wrap}
+      style={[styles.wrap, isDisabled && !loading && styles.disabled]}
     >
       <View style={[styles.shadow, { backgroundColor: t.palette.ink }]} />
       <Animated.View
@@ -52,10 +69,14 @@ export function PosterButton({
           faceStyle,
         ]}
       >
-        <Text style={[styles.label, { fontFamily: t.fonts.bodySemiBold, color: t.palette.ink }]}>
-          {label}
-        </Text>
-        {arrow ? (
+        {loading ? (
+          <ActivityIndicator color={t.palette.ink} />
+        ) : (
+          <Text style={[styles.label, { fontFamily: t.fonts.bodySemiBold, color: t.palette.ink }]}>
+            {label}
+          </Text>
+        )}
+        {arrow && !loading ? (
           <Text style={[styles.arrow, { color: t.palette.ink }]} importantForAccessibility="no">
             →
           </Text>
@@ -66,13 +87,14 @@ export function PosterButton({
 }
 
 const styles = StyleSheet.create({
-  wrap: { alignSelf: 'stretch', marginRight: SHADOW, marginBottom: SHADOW },
+  wrap: { alignSelf: 'stretch', marginRight: POSTER_SHADOW, marginBottom: POSTER_SHADOW },
+  disabled: { opacity: 0.45 },
   shadow: {
     position: 'absolute',
-    top: SHADOW,
-    left: SHADOW,
-    right: -SHADOW,
-    bottom: -SHADOW,
+    top: POSTER_SHADOW,
+    left: POSTER_SHADOW,
+    right: -POSTER_SHADOW,
+    bottom: -POSTER_SHADOW,
     borderRadius: 14,
   },
   face: {
