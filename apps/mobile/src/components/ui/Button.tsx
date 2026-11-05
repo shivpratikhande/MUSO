@@ -35,6 +35,9 @@ export function Button({
 
   return (
     <Pressable
+      // Spread first: wrappers like <Link asChild> inject props (incl. `style={undefined}`)
+      // that must never override the button's own styling.
+      {...rest}
       accessibilityRole="button"
       accessibilityLabel={label}
       accessibilityState={{ disabled: isDisabled, busy: loading }}
@@ -52,7 +55,6 @@ export function Button({
           alignSelf: fullWidth ? 'stretch' : 'flex-start',
         },
       ]}
-      {...rest}
     >
       <View style={styles.row}>
         {loading ? (

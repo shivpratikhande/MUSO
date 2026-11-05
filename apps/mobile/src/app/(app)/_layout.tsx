@@ -4,19 +4,31 @@ import { useTheme } from '@/theme';
 export default function AppLayout() {
   const t = useTheme();
   return (
-    <Stack screenOptions={{ headerShown: false }}>
-      <Stack.Screen name="(tabs)" />
-      <Stack.Screen
-        name="verify-email"
-        options={{
-          presentation: 'modal',
-          headerShown: true,
-          headerTitle: '',
-          headerShadowVisible: false,
-          headerStyle: { backgroundColor: t.c.background },
-          headerTintColor: t.c.text,
-        }}
-      />
+    <Stack
+      screenOptions={{
+        headerShadowVisible: false,
+        headerStyle: { backgroundColor: t.c.background },
+        headerTintColor: t.c.text,
+        headerTitleStyle: { fontFamily: t.fonts.bodySemiBold },
+        headerBackButtonDisplayMode: 'minimal',
+        contentStyle: { backgroundColor: t.c.background },
+      }}
+    >
+      <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
+      <Stack.Screen name="verify-email" options={{ presentation: 'modal', title: '' }} />
+      <Stack.Screen name="events/[id]/index" options={{ title: '', headerTransparent: true }} />
+      <Stack.Screen name="events/new" options={{ title: 'New event', presentation: 'modal' }} />
+      <Stack.Screen name="events/[id]/edit" options={{ title: 'Edit event' }} />
+      <Stack.Screen name="events/[id]/lineup" options={{ title: 'Lineup' }} />
+      <Stack.Screen name="events/[id]/schedule" options={{ title: 'Schedule' }} />
+      <Stack.Screen name="events/mine" options={{ title: 'My events' }} />
+      <Stack.Screen name="admin/review" options={{ title: 'Review queue' }} />
+      <Stack.Screen name="artists/[id]" options={{ title: '', headerTransparent: true }} />
+      <Stack.Screen name="profile/edit" options={{ title: 'Edit profile' }} />
+      <Stack.Screen name="profile/roles" options={{ title: 'Your roles' }} />
+      <Stack.Screen name="profile/artist" options={{ title: 'Artist page' }} />
+      <Stack.Screen name="profile/creator" options={{ title: 'Creator profile' }} />
+      <Stack.Screen name="profile/organizer" options={{ title: 'Organizer details' }} />
     </Stack>
   );
 }

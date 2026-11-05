@@ -8,7 +8,9 @@ const ctx = (roles: UserRole[] | null): ExecutionContext =>
     getHandler: () => undefined,
     getClass: () => undefined,
     switchToHttp: () => ({
-      getRequest: () => ({ user: roles ? { id: 'u', email: 'e', emailVerified: true, roles } : undefined }),
+      getRequest: () => ({
+        user: roles ? { id: 'u', email: 'e', emailVerified: true, roles } : undefined,
+      }),
     }),
   }) as unknown as ExecutionContext;
 
@@ -23,7 +25,9 @@ describe('RolesGuard', () => {
   });
 
   it('allows a user holding one of the required roles', () => {
-    expect(guardRequiring(['ARTIST', 'ORGANIZER']).canActivate(ctx(['SUPPORTER', 'ORGANIZER']))).toBe(true);
+    expect(
+      guardRequiring(['ARTIST', 'ORGANIZER']).canActivate(ctx(['SUPPORTER', 'ORGANIZER'])),
+    ).toBe(true);
   });
 
   it('rejects a user without the required role', () => {

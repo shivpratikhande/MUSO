@@ -20,6 +20,7 @@ SplashScreen.preventAutoHideAsync();
 export default function RootLayout() {
   const t = useTheme();
   const status = useSession((s) => s.status);
+  const onboarded = useSession((s) => s.user?.onboarded ?? false);
   const [queryClient] = useState(
     () => new QueryClient({ defaultOptions: { queries: { staleTime: 30_000, retry: 1 } } }),
   );
@@ -62,8 +63,11 @@ export default function RootLayout() {
         <ThemeProvider value={navTheme}>
           <StatusBar style={t.scheme === 'dark' ? 'light' : 'dark'} />
           <Stack screenOptions={{ headerShown: false }}>
-            <Stack.Protected guard={status === 'signedIn'}>
+            <Stack.Protected guard={status === 'signedIn' && onboarded}>
               <Stack.Screen name="(app)" />
+            </Stack.Protected>
+            <Stack.Protected guard={status === 'signedIn' && !onboarded}>
+              <Stack.Screen name="onboarding" />
             </Stack.Protected>
             <Stack.Protected guard={status === 'signedOut'}>
               <Stack.Screen name="(auth)" />

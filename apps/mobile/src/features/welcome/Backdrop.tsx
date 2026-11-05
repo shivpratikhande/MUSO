@@ -46,12 +46,27 @@ export function Backdrop() {
           />
         </Svg>
       </Animated.View>
-      <Svg style={StyleSheet.absoluteFill} viewBox={VB} preserveAspectRatio="none">
-        {/* White panel the tagline + buttons sit on */}
-        <Path d="M0 640 L230 610 L270 690 L250 844 H0 Z" fill={t.palette.white} />
-        <Path d="M0 790 C80 770 180 800 240 844 H0 Z" fill={t.palette.violet} />
-      </Svg>
     </View>
+  );
+}
+
+/**
+ * Drawn above the hero: the white panel the tagline + buttons sit on. It also hides the
+ * hard crop at the bottom of the cut-out photo.
+ */
+export function Foreground() {
+  const t = useTheme();
+  return (
+    <Svg
+      style={StyleSheet.absoluteFill}
+      viewBox={VB}
+      preserveAspectRatio="none"
+      pointerEvents="none"
+    >
+      <Path d="M0 548 L235 566 L285 650 L390 640 V844 H0 Z" fill={t.palette.white} />
+      <Path d="M285 650 L390 640 V770 C350 740 300 720 270 700 Z" fill={t.palette.violet} />
+      <Path d="M0 795 C80 775 180 805 240 844 H0 Z" fill={t.palette.violet} />
+    </Svg>
   );
 }
 

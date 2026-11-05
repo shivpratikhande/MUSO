@@ -1,4 +1,4 @@
-import { ApiError, createApiClient, type HttpMethod, type RequestOptions } from '@muso/api-client';
+import { ApiError, createApiClient } from '@muso/api-client';
 import type { AuthSession } from '@muso/shared';
 import { useSession } from '@/features/auth/session-store';
 import { tokenStorage } from '@/features/auth/token-storage';
@@ -44,54 +44,23 @@ async function getAccessToken(): Promise<string | null> {
   return accessToken;
 }
 
-const authed = createApiClient({ baseUrl, getAccessToken });
-
-/**
- * Authenticated request with one automatic retry after refreshing on 401.
- * If the refresh itself is rejected, the user is signed out locally.
- */
-async function request<T>(method: HttpMethod, path: string, opts?: RequestOptions): Promise<T> {
+/** On a 401: refresh once and retry. If the refresh itself is rejected, sign out locally. */
+async function onUnauthorized(): Promise<boolean> {
   try {
-    return await authed.request<T>(method, path, opts);
+    await refreshSession();
+    return true;
   } catch (err) {
-    if (
-      !(err instanceof ApiError) ||
-      err.status !== 401 ||
-      useSession.getState().status !== 'signedIn'
-    )
-      throw err;
-    try {
-      await refreshSession();
-    } catch (refreshErr) {
-      if (refreshErr instanceof ApiError && refreshErr.status === 401)
-        await useSession.getState().clear();
-      throw err;
-    }
-    return authed.request<T>(method, path, opts);
+    if (err instanceof ApiError && err.status === 401) await useSession.getState().clear();
+    return false;
   }
 }
 
 /** App-wide API surface. Screens never call fetch directly. */
-export const api = {
-  health: bare.health,
-  auth: {
-    signUp: bare.auth.signUp,
-    signIn: bare.auth.signIn,
-    forgotPassword: bare.auth.forgotPassword,
-    resetPassword: bare.auth.resetPassword,
-    signOut: bare.auth.signOut,
-    me: () => request<Awaited<ReturnType<typeof authed.auth.me>>>('GET', '/auth/me'),
-    verifyEmail: (code: string) =>
-      request<Awaited<ReturnType<typeof authed.auth.verifyEmail>>>('POST', '/auth/verify-email', {
-        body: { code },
-      }),
-    resendVerification: () => request<void>('POST', '/auth/verify-email/resend'),
-  },
-  request,
-};
+export const api = createApiClient({ baseUrl, getAccessToken, onUnauthorized });
 
 /** Human-readable message for any thrown error. */
 export function errorMessage(err: unknown): string {
   if (err instanceof ApiError) return err.message;
+  if (err instanceof Error && err.message) return err.message;
   return 'Something went wrong. Please try again.';
 }

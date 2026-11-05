@@ -38,17 +38,14 @@ export function MusoLogo({ size = 40 }: { size?: number }) {
   }));
 
   return (
-    <View
-      accessible
-      accessibilityRole="header"
-      accessibilityLabel="Muso"
-      style={styles.row}
-    >
+    <View accessible accessibilityRole="header" accessibilityLabel="Muso" style={styles.row}>
       {LETTERS.map((letter, i) => (
         <Letter key={letter} letter={letter} index={i} size={size} reduceMotion={reduceMotion} />
       ))}
       <Animated.View style={[styles.tm, tmStyle]}>
-        <Text style={{ fontFamily: t.fonts.bodySemiBold, fontSize: size * 0.22, color: t.palette.ink }}>
+        <Text
+          style={{ fontFamily: t.fonts.bodySemiBold, fontSize: size * 0.22, color: t.palette.ink }}
+        >
           TM
         </Text>
       </Animated.View>
@@ -106,7 +103,7 @@ function Letter({
         style={{
           fontFamily: t.fonts.poster,
           fontSize: size,
-          lineHeight: size * 1.25,
+          lineHeight: size * 1.35,
           color: t.palette.ink,
           letterSpacing: -0.5,
         }}

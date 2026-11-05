@@ -12,8 +12,8 @@ export default function setup(): void {
   if (testUrl === process.env['DATABASE_URL']) {
     throw new Error('TEST_DATABASE_URL must differ from DATABASE_URL');
   }
-  execSync('pnpm --filter @muso/database exec prisma migrate deploy', {
-    stdio: 'inherit',
-    env: { ...process.env, DATABASE_URL: testUrl },
-  });
+  const env = { ...process.env, DATABASE_URL: testUrl, NODE_ENV: 'test' };
+  execSync('pnpm --filter @muso/database exec prisma migrate deploy', { stdio: 'inherit', env });
+  // Reference data (genres). The seed is idempotent and reads DATABASE_URL from env first.
+  execSync('pnpm --filter @muso/database db:seed', { stdio: 'inherit', env });
 }

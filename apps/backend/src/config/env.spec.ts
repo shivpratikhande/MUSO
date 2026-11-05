@@ -4,6 +4,9 @@ const base = {
   DATABASE_URL: 'postgresql://u:p@localhost:5432/db',
   REDIS_URL: 'redis://localhost:6379',
   JWT_ACCESS_SECRET: 'x'.repeat(32),
+  S3_PUBLIC_ENDPOINT: 'http://localhost:9000',
+  S3_ACCESS_KEY_ID: 'k',
+  S3_SECRET_ACCESS_KEY: 's',
 };
 
 describe('validateEnv', () => {
@@ -36,6 +39,9 @@ describe('validateEnv secrets', () => {
         DATABASE_URL: 'postgresql://u:p@localhost:5432/db',
         REDIS_URL: 'redis://localhost:6379',
         JWT_ACCESS_SECRET: 'short',
+        S3_PUBLIC_ENDPOINT: 'http://localhost:9000',
+        S3_ACCESS_KEY_ID: 'k',
+        S3_SECRET_ACCESS_KEY: 's',
       }),
     ).toThrow(/JWT_ACCESS_SECRET/);
   });

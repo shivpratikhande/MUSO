@@ -4,3 +4,6 @@ import { config } from 'dotenv';
 config({ path: new URL('../../../.env', import.meta.url).pathname, quiet: true });
 process.env['NODE_ENV'] = 'test';
 process.env['DATABASE_URL'] = process.env['TEST_DATABASE_URL'];
+// Tests reach storage on localhost even when the dev .env points the phone at a LAN IP.
+process.env['S3_PUBLIC_ENDPOINT'] = 'http://localhost:9000';
+process.env['S3_AUTO_CREATE_BUCKETS'] = 'true';

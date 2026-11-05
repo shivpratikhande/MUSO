@@ -11,6 +11,7 @@ import {
 } from '@muso/shared';
 import { Prisma } from '@muso/database';
 import { PrismaService } from '../../database/prisma.service.js';
+import { StorageService } from '../../storage/storage.service.js';
 import { MailService } from '../mail/mail.service.js';
 import { AuthCodesService } from './auth-codes.service.js';
 import { TokensService, type ClientMeta } from './tokens.service.js';
@@ -21,7 +22,7 @@ const userSelect = {
   emailVerifiedAt: true,
   username: true,
   displayName: true,
-  avatarUrl: true,
+  avatarKey: true,
   onboardedAt: true,
   roles: { select: { role: true } },
 } as const;
@@ -37,6 +38,7 @@ export class AuthService {
     private readonly tokens: TokensService,
     private readonly codes: AuthCodesService,
     private readonly mail: MailService,
+    private readonly storage: StorageService,
   ) {}
 
   async signUp(input: SignUpInput, meta: ClientMeta): Promise<AuthSession> {
@@ -65,7 +67,7 @@ export class AuthService {
 
     await this.sendVerificationCode(user.id, user.email);
     const tokens = await this.tokens.issue(user.id, meta);
-    return { user: toAuthUser(user), tokens };
+    return { user: this.toAuthUser(user), tokens };
   }
 
   async signIn(input: SignInInput, meta: ClientMeta): Promise<AuthSession> {
@@ -86,7 +88,7 @@ export class AuthService {
     }
 
     const tokens = await this.tokens.issue(user.id, meta);
-    return { user: toAuthUser(user), tokens };
+    return { user: this.toAuthUser(user), tokens };
   }
 
   async refresh(refreshToken: string, meta: ClientMeta): Promise<AuthSession> {
@@ -103,7 +105,7 @@ export class AuthService {
       where: { id: userId, deletedAt: null },
       select: userSelect,
     });
-    return toAuthUser(user);
+    return this.toAuthUser(user);
   }
 
   async verifyEmail(userId: string, code: string): Promise<AuthUser> {
@@ -113,7 +115,7 @@ export class AuthService {
       data: { emailVerifiedAt: new Date() },
       select: userSelect,
     });
-    return toAuthUser(user);
+    return this.toAuthUser(user);
   }
 
   async resendVerification(userId: string): Promise<void> {
@@ -166,17 +168,17 @@ export class AuthService {
       text: `Your verification code is ${code}. It expires in 15 minutes.`,
     });
   }
-}
 
-export function toAuthUser(u: SelectedUser): AuthUser {
-  return {
-    id: u.id,
-    email: u.email,
-    emailVerified: u.emailVerifiedAt !== null,
-    username: u.username,
-    displayName: u.displayName,
-    avatarUrl: u.avatarUrl,
-    roles: u.roles.map((r) => r.role),
-    onboarded: u.onboardedAt !== null,
-  };
+  toAuthUser(u: SelectedUser): AuthUser {
+    return {
+      id: u.id,
+      email: u.email,
+      emailVerified: u.emailVerifiedAt !== null,
+      username: u.username,
+      displayName: u.displayName,
+      avatarUrl: this.storage.publicUrl(u.avatarKey),
+      roles: u.roles.map((r) => r.role),
+      onboarded: u.onboardedAt !== null,
+    };
+  }
 }

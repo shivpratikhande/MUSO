@@ -14,13 +14,15 @@ import Animated, {
 import Svg, { Circle } from 'react-native-svg';
 import { useTheme } from '@/theme';
 
-/**
- * Hero artwork. To use an artist photo, drop a transparent cut-out PNG (≈1000×1200,
- * subject facing left) at assets/images/welcome-hero.png and set:
- *   const HERO_SOURCE = require('../../../assets/images/welcome-hero.png');
- * Only use imagery you have the rights to (an artist's likeness needs their permission).
- */
-const HERO_SOURCE: ImageSource | number | null = null;
+/** Transparent cut-out (1199×1312). Swap the file to change the hero. */
+const HERO_SOURCE: ImageSource | number | null = require('../../../assets/images/welcome-hero.png');
+export const HERO_ASPECT = 1312 / 1199;
+/** Thickness of the white "sticker" outline around the cut-out. */
+const OUTLINE = 5;
+const OUTLINE_OFFSETS = Array.from({ length: 12 }, (_, i) => {
+  const a = (i / 12) * Math.PI * 2;
+  return { x: Math.cos(a) * OUTLINE, y: Math.sin(a) * OUTLINE };
+});
 
 export function HeroArt({ width }: { width: number }) {
   const reduceMotion = useReducedMotion();
@@ -32,18 +34,36 @@ export function HeroArt({ width }: { width: number }) {
 
   const style = useAnimatedStyle(() => ({
     opacity: enter.value,
-    transform: [{ translateX: (1 - enter.value) * width * 0.5 }, { scale: 0.85 + enter.value * 0.15 }],
+    transform: [
+      { translateX: (1 - enter.value) * width * 0.5 },
+      { scale: 0.85 + enter.value * 0.15 },
+    ],
   }));
 
   return (
     <Animated.View style={style}>
       {HERO_SOURCE ? (
-        <Image
-          source={HERO_SOURCE}
-          style={{ width, height: width * 1.2 }}
-          contentFit="contain"
-          accessibilityIgnoresInvertColors
-        />
+        <View style={{ width, height: width * HERO_ASPECT }}>
+          {/* White silhouette copies offset in a ring = sticker outline */}
+          {OUTLINE_OFFSETS.map(({ x, y }, i) => (
+            <Image
+              key={i}
+              source={HERO_SOURCE}
+              tintColor="#FFFFFF"
+              contentFit="contain"
+              style={[
+                StyleSheet.absoluteFill,
+                { transform: [{ translateX: x }, { translateY: y }] },
+              ]}
+            />
+          ))}
+          <Image
+            source={HERO_SOURCE}
+            contentFit="contain"
+            style={StyleSheet.absoluteFill}
+            accessibilityIgnoresInvertColors
+          />
+        </View>
       ) : (
         <Vinyl size={width} />
       )}
@@ -71,7 +91,15 @@ function Vinyl({ size }: { size: number }) {
         <Svg width={size} height={size}>
           <Circle cx={r} cy={r} r={r} fill={t.palette.ink} />
           {[0.92, 0.82, 0.72, 0.62, 0.52].map((k) => (
-            <Circle key={k} cx={r} cy={r} r={r * k} stroke="#34342F" strokeWidth={1.5} fill="none" />
+            <Circle
+              key={k}
+              cx={r}
+              cy={r}
+              r={r * k}
+              stroke="#34342F"
+              strokeWidth={1.5}
+              fill="none"
+            />
           ))}
           {/* Light glint so the spin reads */}
           <Circle

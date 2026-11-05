@@ -47,3 +47,39 @@ describe('api client 204 handling', () => {
     await expect(api.auth.signOut('a'.repeat(43))).resolves.toBeUndefined();
   });
 });
+
+describe('api client 401 refresh', () => {
+  it('refreshes once and retries an authenticated request', async () => {
+    let token = 'old';
+    const fetchImpl = vi.fn(async (_url: string, init: RequestInit) => {
+      const auth = (init.headers as Record<string, string>)['Authorization'];
+      return auth === 'Bearer new'
+        ? json(200, { data: 'ok' })
+        : json(401, { error: { code: 'UNAUTHENTICATED', message: 'expired' } });
+    });
+    const onUnauthorized = vi.fn(async () => {
+      token = 'new';
+      return true;
+    });
+    const api = createApiClient({
+      baseUrl: 'http://x',
+      fetchImpl,
+      getAccessToken: () => token,
+      onUnauthorized,
+    });
+    await expect(api.request('GET', '/me')).resolves.toBe('ok');
+    expect(onUnauthorized).toHaveBeenCalledTimes(1);
+  });
+
+  it('does not try to refresh unauthenticated requests', async () => {
+    const fetchImpl = vi.fn(async () =>
+      json(401, { error: { code: 'UNAUTHENTICATED', message: 'bad creds' } }),
+    );
+    const onUnauthorized = vi.fn(async () => true);
+    const api = createApiClient({ baseUrl: 'http://x', fetchImpl, onUnauthorized });
+    await expect(api.auth.signIn({ email: 'a@b.co', password: 'x' })).rejects.toMatchObject({
+      status: 401,
+    });
+    expect(onUnauthorized).not.toHaveBeenCalled();
+  });
+});

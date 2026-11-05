@@ -25,6 +25,23 @@ export const EnvSchema = z.object({
   JWT_ACCESS_SECRET: z.string().min(32, 'must be at least 32 characters'),
   ACCESS_TOKEN_TTL_SECONDS: z.coerce.number().int().min(60).max(3600).default(900),
   REFRESH_TOKEN_TTL_DAYS: z.coerce.number().int().min(1).max(90).default(30),
+  /** S3-compatible object storage (MinIO locally, S3/R2 in production). */
+  S3_ENDPOINT: z.url().optional(),
+  /** Host the *phone* uses for uploads and image URLs (LAN IP in dev, CDN in prod). */
+  S3_PUBLIC_ENDPOINT: z.url(),
+  S3_REGION: z.string().default('us-east-1'),
+  S3_ACCESS_KEY_ID: z.string().min(1),
+  S3_SECRET_ACCESS_KEY: z.string().min(1),
+  S3_BUCKET_PUBLIC: z.string().min(3).default('muso-public'),
+  S3_FORCE_PATH_STYLE: z
+    .enum(['true', 'false'])
+    .default('true')
+    .transform((v) => v === 'true'),
+  /** Create buckets + public-read policy on boot (dev/test only). */
+  S3_AUTO_CREATE_BUCKETS: z
+    .enum(['true', 'false'])
+    .default('false')
+    .transform((v) => v === 'true'),
 });
 
 export type Env = z.infer<typeof EnvSchema>;

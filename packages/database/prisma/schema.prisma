@@ -3,10 +3,10 @@
 // soft deletion (deletedAt) on user-generated content. Models are added milestone by milestone.
 
 generator client {
-  provider               = "prisma-client"
-  output                 = "../src/generated/prisma"
-  moduleFormat           = "esm"
-  importFileExtension    = "js"
+  provider            = "prisma-client"
+  output              = "../src/generated/prisma"
+  moduleFormat        = "esm"
+  importFileExtension = "js"
 }
 
 datasource db {
@@ -28,17 +28,34 @@ model User {
   emailVerifiedAt DateTime? @map("email_verified_at")
   /// Null for social-only accounts.
   passwordHash    String?   @map("password_hash")
+  /// Lowercase handle, unique. Set during onboarding.
   username        String?   @unique
   displayName     String?   @map("display_name")
-  avatarUrl       String?   @map("avatar_url")
+  /// Object-storage key (public bucket). The API returns a full URL.
+  avatarKey       String?   @map("avatar_key")
+  bio             String?
+  city            String?
+  country         String?   @db.Char(2)
+  /// [{ label, url }] — validated by the API.
+  links           Json      @default("[]")
+  /// Privacy: hide city/country from other users.
+  showLocation    Boolean   @default(true) @map("show_location")
+  /// Privacy: show earnings achievements publicly (M4+). Private by default.
+  showEarnings    Boolean   @default(false) @map("show_earnings")
   onboardedAt     DateTime? @map("onboarded_at")
   createdAt       DateTime  @default(now()) @map("created_at")
   updatedAt       DateTime  @updatedAt @map("updated_at")
   deletedAt       DateTime? @map("deleted_at")
 
-  roles      UserRole[]
-  sessions   Session[]
-  authCodes  AuthCode[]
+  roles            UserRole[]
+  sessions         Session[]
+  authCodes        AuthCode[]
+  artistProfile    ArtistProfile?
+  creatorProfile   CreatorProfile?
+  organizerProfile OrganizerProfile?
+  organizedEvents  Event[]           @relation("EventOrganizer")
+  reviewedEvents   Event[]           @relation("EventReviewer")
+  eventFollows     EventFollow[]
 
   @@map("users")
 }
@@ -63,6 +80,8 @@ model Genre {
   name      String
   createdAt DateTime @default(now()) @map("created_at")
   updatedAt DateTime @updatedAt @map("updated_at")
+
+  artists ArtistGenre[]
 
   @@map("genres")
 }
@@ -111,4 +130,178 @@ model AuthCode {
 
   @@index([userId, purpose])
   @@map("auth_codes")
+}
+
+// ─────────────────────────────── Profiles (M2) ───────────────────────────────
+
+model ArtistProfile {
+  id                 String             @id @default(uuid(7)) @db.Uuid
+  userId             String             @unique @map("user_id") @db.Uuid
+  stageName          String             @map("stage_name")
+  coverKey           String?            @map("cover_key")
+  /// Artist-defined permitted usage of fan content (shown to creators; enforced in M3/M5).
+  contentUsagePolicy ContentUsagePolicy @default(PERSONAL_SHARING_ONLY) @map("content_usage_policy")
+  createdAt          DateTime           @default(now()) @map("created_at")
+  updatedAt          DateTime           @updatedAt @map("updated_at")
+
+  user          User                @relation(fields: [userId], references: [id], onDelete: Cascade)
+  genres        ArtistGenre[]
+  eventSlots    EventArtist[]
+  scheduleItems EventScheduleItem[]
+
+  @@index([stageName])
+  @@map("artist_profiles")
+}
+
+enum ContentUsagePolicy {
+  /// Fans may post and share; commercial use needs a licence.
+  PERSONAL_SHARING_ONLY
+  /// Fans may post, share and sell access to their own captures.
+  FAN_MONETIZATION_ALLOWED
+  /// Artist asks fans not to post recordings.
+  NO_RECORDINGS
+}
+
+model ArtistGenre {
+  artistId String @map("artist_id") @db.Uuid
+  genreId  String @map("genre_id") @db.Uuid
+
+  artist ArtistProfile @relation(fields: [artistId], references: [id], onDelete: Cascade)
+  genre  Genre         @relation(fields: [genreId], references: [id], onDelete: Cascade)
+
+  @@id([artistId, genreId])
+  @@index([genreId])
+  @@map("artist_genres")
+}
+
+enum CreatorFocus {
+  PHOTOGRAPHY
+  VIDEOGRAPHY
+}
+
+model CreatorProfile {
+  id           String         @id @default(uuid(7)) @db.Uuid
+  userId       String         @unique @map("user_id") @db.Uuid
+  focus        CreatorFocus[]
+  portfolioUrl String?        @map("portfolio_url")
+  createdAt    DateTime       @default(now()) @map("created_at")
+  updatedAt    DateTime       @updatedAt @map("updated_at")
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("creator_profiles")
+}
+
+model OrganizerProfile {
+  id               String   @id @default(uuid(7)) @db.Uuid
+  userId           String   @unique @map("user_id") @db.Uuid
+  organizationName String   @map("organization_name")
+  contactEmail     String   @map("contact_email")
+  contactPhone     String?  @map("contact_phone")
+  website          String?
+  createdAt        DateTime @default(now()) @map("created_at")
+  updatedAt        DateTime @updatedAt @map("updated_at")
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("organizer_profiles")
+}
+
+// ──────────────────────────────── Events (M2) ────────────────────────────────
+
+/// Lifecycle (UPCOMING / LIVE / COMPLETED / CANCELLED) is derived from
+/// startsAt / endsAt / cancelledAt, so it can never drift out of sync.
+model Event {
+  id              String            @id @default(uuid(7)) @db.Uuid
+  organizerId     String            @map("organizer_id") @db.Uuid
+  title           String
+  description     String
+  coverKey        String?           @map("cover_key")
+  venueName       String            @map("venue_name")
+  address         String?
+  city            String
+  country         String            @db.Char(2)
+  startsAt        DateTime          @map("starts_at")
+  endsAt          DateTime          @map("ends_at")
+  recordingPolicy RecordingPolicy   @default(ALLOWED) @map("recording_policy")
+  recordingNotes  String?           @map("recording_notes")
+  reviewStatus    EventReviewStatus @default(PENDING) @map("review_status")
+  reviewNote      String?           @map("review_note")
+  reviewedById    String?           @map("reviewed_by_id") @db.Uuid
+  reviewedAt      DateTime?         @map("reviewed_at")
+  cancelledAt     DateTime?         @map("cancelled_at")
+  createdAt       DateTime          @default(now()) @map("created_at")
+  updatedAt       DateTime          @updatedAt @map("updated_at")
+  deletedAt       DateTime?         @map("deleted_at")
+
+  organizer  User                @relation("EventOrganizer", fields: [organizerId], references: [id])
+  reviewedBy User?               @relation("EventReviewer", fields: [reviewedById], references: [id])
+  artists    EventArtist[]
+  schedule   EventScheduleItem[]
+  followers  EventFollow[]
+
+  @@index([reviewStatus, startsAt])
+  @@index([reviewStatus, endsAt])
+  @@index([organizerId])
+  @@index([city])
+  @@map("events")
+}
+
+enum RecordingPolicy {
+  ALLOWED
+  PHOTOS_ONLY
+  NOT_ALLOWED
+}
+
+/// Events are only publicly visible once approved.
+enum EventReviewStatus {
+  PENDING
+  APPROVED
+  REJECTED
+}
+
+model EventArtist {
+  eventId   String   @map("event_id") @db.Uuid
+  artistId  String   @map("artist_id") @db.Uuid
+  /// 0 = headliner, ascending billing order.
+  position  Int
+  createdAt DateTime @default(now()) @map("created_at")
+
+  event  Event         @relation(fields: [eventId], references: [id], onDelete: Cascade)
+  artist ArtistProfile @relation(fields: [artistId], references: [id], onDelete: Cascade)
+
+  @@id([eventId, artistId])
+  @@index([artistId])
+  @@map("event_artists")
+}
+
+model EventScheduleItem {
+  id        String    @id @default(uuid(7)) @db.Uuid
+  eventId   String    @map("event_id") @db.Uuid
+  title     String
+  stage     String?
+  startsAt  DateTime  @map("starts_at")
+  endsAt    DateTime? @map("ends_at")
+  artistId  String?   @map("artist_id") @db.Uuid
+  createdAt DateTime  @default(now()) @map("created_at")
+  updatedAt DateTime  @updatedAt @map("updated_at")
+
+  event  Event          @relation(fields: [eventId], references: [id], onDelete: Cascade)
+  artist ArtistProfile? @relation(fields: [artistId], references: [id], onDelete: SetNull)
+
+  @@index([eventId, startsAt])
+  @@map("event_schedule_items")
+}
+
+model EventFollow {
+  userId    String   @map("user_id") @db.Uuid
+  eventId   String   @map("event_id") @db.Uuid
+  createdAt DateTime @default(now()) @map("created_at")
+
+  user  User  @relation(fields: [userId], references: [id], onDelete: Cascade)
+  event Event @relation(fields: [eventId], references: [id], onDelete: Cascade)
+
+  @@id([userId, eventId])
+  @@index([eventId])
+  @@map("event_follows")
 }

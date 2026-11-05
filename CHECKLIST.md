@@ -10,11 +10,12 @@ A UI that exists but isn't wired to the backend is `[~]`, never `[x]`.
 
 ## 📍 Current status — 2026-11-06
 
-**Milestone 1 complete except on-device verification.**
-- ✅ Backend: 23/23 e2e tests (auth, health, rate limit) pass against an isolated `muso_test` DB, plus unit tests. The server boots and was smoke-tested with curl.
-- ✅ Mobile: typecheck, ESLint and `expo-doctor` (20/20) pass, and the iOS JS bundle compiles with Metro.
-- ⚠️ **Not yet run on a simulator or phone.** Xcode isn't installed on the dev Mac, so the mobile screens are `[~]` until someone taps through them.
-- ⏭ Foundry / contracts moved to Milestone 6, where they're first needed.
+**Milestone 2 built. The backend is fully tested, but the new mobile screens haven't been tapped through on a phone yet.**
+- ✅ Backend: **57/57 e2e tests** pass (auth, profiles, roles, onboarding, real uploads to MinIO, events, lineup, schedule, review, follow, discovery, pagination) plus unit tests. Every monorepo typecheck, lint and test task passes.
+- ✅ Mobile: typecheck, ESLint and the iOS bundle pass. Milestone 1 ran on an iPhone in Expo Go (welcome screen and sign-up confirmed).
+- ⚠️ The Milestone 2 screens (onboarding, profile, events, lineup, schedule, review) need an on-device pass.
+- ⏭ Supporter "interests" moved to Milestone 3, where the feed uses them.
+- ⏭ Foundry / contracts moved to Milestone 6.
 
 ---
 
@@ -80,9 +81,9 @@ A UI that exists but isn't wired to the backend is `[~]`, never `[x]`.
 
 ### Mobile
 - [x] Expo SDK 58 + Expo Router (typed routes)
-- [~] 5 native tabs: Discover · Events · Create · Activity · Profile
-- [~] Auth screens: Welcome · Sign up · Sign in (wired to API)
-- [~] Protected routes (signed-out users see auth flow)
+- [x] 5 native tabs: Discover · Events · Create · Activity · Profile
+- [x] Auth screens: Welcome · Sign up · Sign in (wired to API) — confirmed on iPhone
+- [x] Protected routes (signed-out users see auth flow)
 - [~] Tokens in SecureStore, TanStack Query, API client
 - [~] Loading / error / empty states pattern
 
@@ -93,7 +94,7 @@ A UI that exists but isn't wired to the backend is `[~]`, never `[x]`.
 - [~] Core components: Text, Button, TextField, Card, Screen, Pill, EmptyState, ErrorState
 
 ### Deliverable
-- [ ] App runs on iOS simulator / device (**needs Xcode installed**)
+- [x] App runs on a device (iPhone via Expo Go; a dev build will need Xcode or EAS)
 - [~] User can sign up, sign in, restore session, log out
 
 ---
@@ -101,26 +102,26 @@ A UI that exists but isn't wired to the backend is `[~]`, never `[x]`.
 ## Milestone 2 — User & Event Experience
 
 ### Onboarding & profiles
-- [ ] Role selection
-- [ ] Onboarding flow + profile setup (avatar, bio, location, links)
-- [ ] Artist profile: name, photo, cover, bio, genres, location, social links
-- [ ] Creator profile: username, bio, location, photo/video interests, portfolio
-- [ ] Supporter profile: interests
-- [ ] Organizer profile: organization, contact
-- [ ] Privacy settings (hide earnings / personal info)
-- [ ] Avatar + cover upload (signed URLs → object storage)
+- [x] Role selection (multi-role; ADMIN can never be self-assigned)
+- [x] Onboarding flow + profile setup (avatar, bio, location, links); completion blocked until each role's profile exists
+- [x] Artist profile: name, photo, cover, bio, genres, location, social links, fan-recording policy
+- [x] Creator profile: username, bio, location, photo/video interests, portfolio
+- [ ] Supporter profile: interests → moved to Milestone 3 (feed personalisation)
+- [x] Organizer profile: organization, contact
+- [x] Privacy settings: hide location, earnings private by default (earnings display arrives in M4)
+- [x] Avatar + cover upload (presigned PUT → MinIO/S3; ownership and completed-upload checks)
 
 ### Events
-- [ ] Organizer creates event: name, cover, venue, location, date/time, description
-- [ ] Recording policy per event (organizer-defined)
-- [ ] Add artists to event (lineup)
-- [ ] Event schedule
-- [ ] Lifecycle: Upcoming → Live → Completed / Cancelled
-- [ ] Admin approval of event data
-- [ ] Event discovery list (upcoming, live, filters)
-- [ ] Event detail page
-- [ ] Follow event
-- [ ] Artist profile shows upcoming + past events
+- [x] Organizer creates event: name, cover, venue, location, date/time, description (verified email required)
+- [x] Recording policy per event (organizer-defined)
+- [x] Add artists to event (lineup, billing order)
+- [x] Event schedule (only lineup artists, inside the event window)
+- [x] Lifecycle: Upcoming → Live → Completed / Cancelled (derived from times, can't drift)
+- [x] Admin approval of event data (edits to approved events trigger a new review)
+- [x] Event discovery list (upcoming, live, past, search, city filter, cursor pagination)
+- [x] Event detail page
+- [x] Follow event
+- [x] Artist profile shows upcoming + past events
 
 ---
 
@@ -144,6 +145,7 @@ A UI that exists but isn't wired to the backend is `[~]`, never `[x]`.
 - [ ] Fan uploads never auto-marked as official artist content
 
 ### Feed & social
+- [ ] Supporter interests (genres) for personalisation
 - [ ] Discover feed: For You · Trending · Live Events · Around You · Artists · Photography · Videos
 - [ ] Infinite scroll + cursor pagination
 - [ ] Video playback in feed

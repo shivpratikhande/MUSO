@@ -17,10 +17,6 @@ export const SELF_ASSIGNABLE_ROLES = [
   'ORGANIZER',
 ] as const satisfies readonly UserRole[];
 
-export const EVENT_STATUSES = ['UPCOMING', 'LIVE', 'COMPLETED', 'CANCELLED'] as const;
-export const EventStatusSchema = z.enum(EVENT_STATUSES);
-export type EventStatus = z.infer<typeof EventStatusSchema>;
-
 /** How a piece of creator content earns. */
 export const MONETIZATION_MODES = ['FREE', 'PAY_TO_UNLOCK', 'PAY_WHAT_YOU_WANT'] as const;
 export const MonetizationModeSchema = z.enum(MONETIZATION_MODES);

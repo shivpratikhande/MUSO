@@ -37,12 +37,14 @@ packages/
 ### 1. Prerequisites
 
 - Node **22.18+** and pnpm **10** (`corepack enable`)
-- PostgreSQL 17 and Redis:
+- PostgreSQL 17, Redis and MinIO (S3-compatible storage for images):
   ```sh
-  brew install postgresql@17 redis
+  brew install postgresql@17 redis minio
   brew services start postgresql@17
   brew services start redis
+  brew services start minio      # http://localhost:9000, login minioadmin / minioadmin
   ```
+  The API creates the `muso-public` bucket automatically on first boot (`S3_AUTO_CREATE_BUCKETS=true`).
   _Or with Docker:_ `docker compose up -d` (Postgres, Redis, MinIO).
 - **Xcode** (from the App Store) for the iOS simulator, then `xcode-select -s /Applications/Xcode.app`
 
@@ -62,7 +64,8 @@ cp .env.example .env                       # then set JWT_ACCESS_SECRET:
 openssl rand -base64 48                    #   paste the output into .env
 cp apps/mobile/.env.example apps/mobile/.env
 pnpm db:migrate                            # apply migrations + generate client
-pnpm db:seed                               # genres
+pnpm db:seed                               # genres + demo artists/events (SEED_DEMO=0 to skip)
+pnpm db:make-admin you@example.com         # after signing up: admin + verified email
 pnpm build                                 # build shared packages
 ```
 
@@ -79,7 +82,11 @@ The app uses native modules (SecureStore, native tabs), so use a **development b
 cd apps/mobile && npx expo run:ios
 ```
 
-On a physical phone, set `EXPO_PUBLIC_API_URL` in `apps/mobile/.env` to your Mac's LAN IP (e.g. `http://192.168.1.20:4000/v1`).
+On a physical phone, use your Mac's LAN IP (`ipconfig getifaddr en0`) in **two** places:
+- `apps/mobile/.env` → `EXPO_PUBLIC_API_URL=http://<LAN-IP>:4000/v1`
+- `.env` → `S3_PUBLIC_ENDPOINT=http://<LAN-IP>:9000` (so the phone can upload and load images)
+
+Quickest way to try it without Xcode is **Expo Go**. Sign in to the same Expo account on the Mac (`npx expo login`) and in the Expo Go app, then scan the QR code from `pnpm dev:mobile`.
 
 **Dev email:** no mail provider yet. Verification and password-reset codes are printed in the backend log (`[dev mail] …`).
 
@@ -95,7 +102,8 @@ On a physical phone, set `EXPO_PUBLIC_API_URL` in `apps/mobile/.env` to your Mac
 | `pnpm test` | Unit tests |
 | `pnpm test:e2e` | Backend e2e tests against `muso_test` (migrations applied automatically) |
 | `pnpm db:migrate` | Create/apply a migration in dev |
-| `pnpm db:seed` | Seed development data |
+| `pnpm db:seed` | Seed genres + demo artists and events |
+| `pnpm db:make-admin <email>` | Make an account admin (dev only) |
 | `pnpm db:studio` | Prisma Studio |
 | `pnpm format` | Prettier |
 
@@ -116,6 +124,17 @@ On a physical phone, set `EXPO_PUBLIC_API_URL` in `apps/mobile/.env` to your Mac
 - **Refresh token:** opaque 256-bit, stored on device in the Keychain (`expo-secure-store`) and on the server as a SHA-256 hash. Rotated on every use. Reusing an old token revokes the whole session family.
 - Email verification and password reset use 6-digit codes (hashed, 15 min expiry, 5 attempts). Password reset signs out all devices.
 - Sign-in errors and forgot-password responses never reveal whether an email is registered.
+
+## Events model
+
+- Organizers (with a verified email and an organizer profile) create events. Events start **PENDING** and are only visible to their organizer and admins until an admin **approves** them.
+- Changing an approved event's core details (name, description, poster, venue, dates) sends it back to review.
+- Lifecycle (Upcoming / Live / Completed / Cancelled) is **derived** from start, end and cancellation times, so it never needs a cron job.
+- Each event has a **recording policy** (allowed / photos only / not allowed), and each artist sets a **fan-recording policy**. Milestone 3 uploads respect both.
+
+## Uploads
+
+`POST /v1/uploads/presign` returns a 5-minute presigned PUT URL. The content type and exact byte length are signed, and keys look like `<folder>/<userId>/<uuid>.<ext>`. Before saving a key on a profile or event, the API checks that it belongs to the caller and that the upload actually completed. Avatars, covers and posters live in a public-read bucket. Private originals for fan media come in Milestone 3.
 
 ## Security notes
 

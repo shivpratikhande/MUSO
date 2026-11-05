@@ -11,8 +11,8 @@ import Animated, {
   withSpring,
 } from 'react-native-reanimated';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { Backdrop, Crown, Sparks } from '@/features/welcome/Backdrop';
-import { HeroArt } from '@/features/welcome/HeroArt';
+import { Backdrop, Crown, Foreground, Sparks } from '@/features/welcome/Backdrop';
+import { HERO_ASPECT, HeroArt } from '@/features/welcome/HeroArt';
 import { MusoLogo } from '@/features/welcome/MusoLogo';
 import { PosterButton } from '@/features/welcome/PosterButton';
 import { useTheme } from '@/theme';
@@ -27,7 +27,18 @@ export default function WelcomeScreen() {
   const t = useTheme();
   const insets = useSafeAreaInsets();
   const { width, height } = useWindowDimensions();
-  const headlineSize = Math.min(width * 0.21, 96);
+  const headlineSize = Math.min(width * 0.19, 88);
+  // Hero (matches the mockup): head starts at ~17% height, the figure runs down to ~78%
+  // (its hard bottom crop hides under the white panel), face centred at ~66% width.
+  // The right shoulder is allowed to run off-screen.
+  const heroTop = height * 0.17;
+  const heroHeight = height * 0.61;
+  const heroWidth = heroHeight / HERO_ASPECT;
+  const heroLeft = width * 0.66 - heroWidth * 0.5;
+  // Crown sits on top of the turban, toward its right side; it tracks the photo, not the screen.
+  const crownSize = width * 0.26;
+  const crownLeft = Math.min(heroLeft + heroWidth * 0.62, width - crownSize - 10);
+  const crownTop = heroTop + heroHeight * 0.02 - crownSize * 0.62 * 0.9;
 
   return (
     <View style={styles.fill}>
@@ -35,11 +46,12 @@ export default function WelcomeScreen() {
       <Backdrop />
 
       {/* Hero + doodles, positioned against the backdrop */}
-      <View style={[styles.hero, { top: height * 0.2, right: -width * 0.06 }]} pointerEvents="none">
-        <HeroArt width={width * 0.66} />
+      <View style={[styles.hero, { top: heroTop, left: heroLeft }]} pointerEvents="none">
+        <HeroArt width={heroWidth} />
       </View>
-      <View style={{ position: 'absolute', top: insets.top + 54, right: 26 }} pointerEvents="none">
-        <Crown size={width * 0.26} />
+      <Foreground />
+      <View style={{ position: 'absolute', top: crownTop, left: crownLeft }} pointerEvents="none">
+        <Crown size={crownSize} />
       </View>
       <View style={{ position: 'absolute', top: height * 0.6, left: 26 }} pointerEvents="none">
         <Sparks size={52} rotate={-150} delay={150} />
@@ -48,13 +60,20 @@ export default function WelcomeScreen() {
         <Sparks size={44} rotate={20} delay={400} />
       </View>
 
-      <View style={[styles.content, { paddingTop: insets.top + 8, paddingBottom: insets.bottom + 16 }]}>
+      <View
+        style={[styles.content, { paddingTop: insets.top + 8, paddingBottom: insets.bottom + 16 }]}
+      >
         <View style={styles.topBar}>
           <MusoLogo size={42} />
           <PageDots />
         </View>
 
-        <View style={styles.headline} accessible accessibilityRole="header" accessibilityLabel="I'm an artist, broo">
+        <View
+          style={styles.headline}
+          accessible
+          accessibilityRole="header"
+          accessibilityLabel="I'm an artist, broo"
+        >
           {HEADLINE.map((line, i) => (
             <HeadlineSticker key={line.text} {...line} index={i} size={headlineSize} />
           ))}
@@ -62,7 +81,10 @@ export default function WelcomeScreen() {
 
         <View style={{ flex: 1 }} />
 
-        <Animated.View entering={FadeInDown.delay(1000).springify().damping(16)} style={styles.copy}>
+        <Animated.View
+          entering={FadeInDown.delay(1000).springify().damping(16)}
+          style={styles.copy}
+        >
           <Text style={{ fontFamily: t.fonts.bodySemiBold, fontSize: 20, color: t.palette.ink }}>
             Music. Artists. Live.
           </Text>
@@ -80,7 +102,10 @@ export default function WelcomeScreen() {
           </Text>
         </Animated.View>
 
-        <Animated.View entering={FadeInDown.delay(1150).springify().damping(15)} style={styles.actions}>
+        <Animated.View
+          entering={FadeInDown.delay(1150).springify().damping(15)}
+          style={styles.actions}
+        >
           <Link href="/sign-up" asChild>
             <PosterButton label="Get Started" arrow />
           </Link>
@@ -111,7 +136,8 @@ function HeadlineSticker({
   const slam = useSharedValue(reduceMotion ? 1 : 0);
 
   useEffect(() => {
-    if (!reduceMotion) slam.value = withDelay(delay, withSpring(1, { damping: 10, stiffness: 160 }));
+    if (!reduceMotion)
+      slam.value = withDelay(delay, withSpring(1, { damping: 10, stiffness: 160 }));
   }, [reduceMotion, slam, delay]);
 
   const tilt = [-6, -5, -7][index];
@@ -126,10 +152,15 @@ function HeadlineSticker({
   return (
     <Animated.View
       style={[
-        styles.sticker,
         {
           backgroundColor: bg === 'lime' ? t.palette.lime : t.palette.white,
           marginLeft: index === 2 ? size * 0.08 : 0,
+          // Overlap the stickers slightly so the stack stays tight like a poster.
+          marginTop: index === 0 ? 0 : -size * 0.1,
+          zIndex: HEADLINE.length - index,
+          paddingHorizontal: size * 0.12,
+          paddingTop: size * 0.06,
+          paddingBottom: size * 0.02,
           borderWidth: bg === 'lime' ? 3 : 0,
           borderColor: t.palette.ink,
         },
@@ -140,7 +171,9 @@ function HeadlineSticker({
         style={{
           fontFamily: t.fonts.poster,
           fontSize: size,
-          lineHeight: size * 1.08,
+          // Anton has tall ascenders: anything under ~1.3× clips the tops on iOS.
+          lineHeight: size * 1.32,
+          includeFontPadding: false,
           color: t.palette.ink,
           letterSpacing: -1,
           transform: [{ skewX: '-8deg' }],
@@ -179,8 +212,7 @@ const styles = StyleSheet.create({
   content: { flex: 1, paddingHorizontal: 20 },
   topBar: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
   dots: { flexDirection: 'row', gap: 6 },
-  headline: { marginTop: 18, alignItems: 'flex-start', gap: 2 },
-  sticker: { paddingHorizontal: 8, paddingTop: 2 },
+  headline: { marginTop: 18, alignItems: 'flex-start' },
   copy: { marginBottom: 22 },
   actions: { gap: 10, paddingHorizontal: 18 },
 });
