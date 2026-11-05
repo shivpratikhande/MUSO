@@ -1,0 +1,114 @@
+// MUSO database schema.
+// Conventions: UUID primary keys, snake_case table names, created/updated timestamps,
+// soft deletion (deletedAt) on user-generated content. Models are added milestone by milestone.
+
+generator client {
+  provider               = "prisma-client"
+  output                 = "../src/generated/prisma"
+  moduleFormat           = "esm"
+  importFileExtension    = "js"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+/// Keep in sync with USER_ROLES in packages/shared/src/enums.ts
+enum Role {
+  ARTIST
+  CREATOR
+  SUPPORTER
+  ORGANIZER
+  ADMIN
+}
+
+model User {
+  id              String    @id @default(uuid(7)) @db.Uuid
+  email           String    @unique
+  emailVerifiedAt DateTime? @map("email_verified_at")
+  /// Null for social-only accounts.
+  passwordHash    String?   @map("password_hash")
+  username        String?   @unique
+  displayName     String?   @map("display_name")
+  avatarUrl       String?   @map("avatar_url")
+  onboardedAt     DateTime? @map("onboarded_at")
+  createdAt       DateTime  @default(now()) @map("created_at")
+  updatedAt       DateTime  @updatedAt @map("updated_at")
+  deletedAt       DateTime? @map("deleted_at")
+
+  roles      UserRole[]
+  sessions   Session[]
+  authCodes  AuthCode[]
+
+  @@map("users")
+}
+
+/// A user may hold several roles (e.g. a fan who is also a creator).
+model UserRole {
+  id        String   @id @default(uuid(7)) @db.Uuid
+  userId    String   @map("user_id") @db.Uuid
+  role      Role
+  createdAt DateTime @default(now()) @map("created_at")
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, role])
+  @@index([role])
+  @@map("user_roles")
+}
+
+model Genre {
+  id        String   @id @default(uuid(7)) @db.Uuid
+  slug      String   @unique
+  name      String
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  @@map("genres")
+}
+
+/// One row per signed-in device. Refresh tokens are rotated on every use and stored only as SHA-256 hashes.
+/// Reuse of an already-rotated token revokes the whole family (token theft detection).
+model Session {
+  id               String    @id @default(uuid(7)) @db.Uuid
+  userId           String    @map("user_id") @db.Uuid
+  /// Identifies the chain of rotated tokens issued from one sign-in.
+  familyId         String    @map("family_id") @db.Uuid
+  refreshTokenHash String    @unique @map("refresh_token_hash")
+  userAgent        String?   @map("user_agent")
+  ip               String?
+  expiresAt        DateTime  @map("expires_at")
+  /// Set when this token was exchanged for a newer one.
+  rotatedAt        DateTime? @map("rotated_at")
+  revokedAt        DateTime? @map("revoked_at")
+  createdAt        DateTime  @default(now()) @map("created_at")
+  updatedAt        DateTime  @updatedAt @map("updated_at")
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([familyId])
+  @@map("sessions")
+}
+
+enum AuthCodePurpose {
+  EMAIL_VERIFICATION
+  PASSWORD_RESET
+}
+
+/// Short-lived one-time codes (stored hashed) for email verification and password reset.
+model AuthCode {
+  id         String          @id @default(uuid(7)) @db.Uuid
+  userId     String          @map("user_id") @db.Uuid
+  purpose    AuthCodePurpose
+  codeHash   String          @map("code_hash")
+  attempts   Int             @default(0)
+  expiresAt  DateTime        @map("expires_at")
+  consumedAt DateTime?       @map("consumed_at")
+  createdAt  DateTime        @default(now()) @map("created_at")
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, purpose])
+  @@map("auth_codes")
+}

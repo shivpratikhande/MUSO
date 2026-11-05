@@ -1,0 +1,30 @@
+{
+  "name": "muso",
+  "private": true,
+  "packageManager": "pnpm@10.28.1",
+  "engines": {
+    "node": ">=22.18"
+  },
+  "scripts": {
+    "build": "turbo run build",
+    "dev": "turbo run dev --parallel",
+    "dev:backend": "turbo run dev --filter=@muso/backend",
+    "dev:mobile": "pnpm --filter @muso/mobile start",
+    "lint": "turbo run lint",
+    "typecheck": "turbo run typecheck",
+    "test": "turbo run test",
+    "db:generate": "pnpm --filter @muso/database db:generate",
+    "db:migrate": "pnpm --filter @muso/database db:migrate",
+    "db:deploy": "pnpm --filter @muso/database db:deploy",
+    "db:seed": "pnpm --filter @muso/database db:seed",
+    "db:studio": "pnpm --filter @muso/database db:studio",
+    "format": "prettier --write \"**/*.{ts,tsx,js,json}\"",
+    "test:e2e": "pnpm --filter @muso/backend test:e2e",
+    "format:check": "prettier --check \"**/*.{ts,tsx,js,json}\""
+  },
+  "devDependencies": {
+    "prettier": "^3.4.2",
+    "turbo": "2.11.10",
+    "typescript": "~6.0.3"
+  }
+}

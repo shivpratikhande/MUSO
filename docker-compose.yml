@@ -1,0 +1,35 @@
+# Optional local infrastructure for teammates who use Docker.
+# (Without Docker: `brew install postgresql@17 redis minio` — see README.)
+services:
+  postgres:
+    image: postgres:17
+    environment:
+      POSTGRES_USER: muso
+      POSTGRES_PASSWORD: muso_dev
+      POSTGRES_DB: muso_dev
+    ports: ["5432:5432"]
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+      - ./scripts/init-test-db.sql:/docker-entrypoint-initdb.d/init-test-db.sql:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U muso"]
+      interval: 5s
+      retries: 10
+
+  redis:
+    image: redis:7
+    ports: ["6379:6379"]
+
+  minio:
+    image: minio/minio:latest
+    command: server /data --console-address ":9001"
+    environment:
+      MINIO_ROOT_USER: muso
+      MINIO_ROOT_PASSWORD: muso_dev_secret
+    ports: ["9000:9000", "9001:9001"]
+    volumes:
+      - miniodata:/data
+
+volumes:
+  pgdata:
+  miniodata:

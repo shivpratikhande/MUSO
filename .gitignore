@@ -1,0 +1,38 @@
+# deps
+node_modules/
+
+# builds
+dist/
+build/
+.turbo/
+*.tsbuildinfo
+coverage/
+
+# prisma generated client
+packages/database/src/generated/
+
+# env — never commit secrets
+.env
+.env.*
+!.env.example
+
+# expo
+.expo/
+apps/mobile/ios/
+apps/mobile/android/
+apps/mobile/expo-env.d.ts
+*.jks
+*.p8
+*.p12
+*.key
+*.mobileprovision
+
+# foundry
+packages/contracts/out/
+packages/contracts/cache/
+packages/contracts/broadcast/*/31337/
+
+# os / editor
+.DS_Store
+*.log
+.idea/
