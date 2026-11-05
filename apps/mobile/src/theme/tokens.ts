@@ -8,6 +8,7 @@ export const palette = {
   ivory: '#F4F0E8',
   lime: '#D9FF55',
   coral: '#F16B55',
+  violet: '#9A62F7',
   // Derived neutrals (tuned for AA contrast on ink/ivory)
   ink80: '#2A2A27',
   ink60: '#3D3D39',
@@ -74,6 +75,8 @@ export const fonts = {
   body: 'Inter_400Regular',
   bodyMedium: 'Inter_500Medium',
   bodySemiBold: 'Inter_600SemiBold',
+  /** Condensed poster face — welcome/marketing moments only. */
+  poster: 'Anton_400Regular',
 } as const;
 
 /** Type scale. Display styles use the editorial serif; UI styles use Inter. */

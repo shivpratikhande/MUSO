@@ -1,3 +1,4 @@
+import { Anton_400Regular } from '@expo-google-fonts/anton/400Regular';
 import { InstrumentSerif_400Regular } from '@expo-google-fonts/instrument-serif/400Regular';
 import { InstrumentSerif_400Regular_Italic } from '@expo-google-fonts/instrument-serif/400Regular_Italic';
 import { Inter_400Regular } from '@expo-google-fonts/inter/400Regular';
@@ -23,6 +24,7 @@ export default function RootLayout() {
     () => new QueryClient({ defaultOptions: { queries: { staleTime: 30_000, retry: 1 } } }),
   );
   const [fontsLoaded, fontError] = useFonts({
+    Anton_400Regular,
     InstrumentSerif_400Regular,
     InstrumentSerif_400Regular_Italic,
     Inter_400Regular,
