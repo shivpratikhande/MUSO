@@ -4,12 +4,14 @@ import {
   ArtistProfileInputSchema,
   CreatorProfileInputSchema,
   OrganizerProfileInputSchema,
+  SetInterestsSchema,
   SetRolesSchema,
   UpdateMeSchema,
   type ArtistProfileInput,
   type CreatorProfileInput,
   type MyProfile,
   type OrganizerProfileInput,
+  type SetInterestsInput,
   type SetRolesInput,
   type UpdateMeInput,
 } from '@muso/shared';
@@ -43,6 +45,14 @@ export class MeController {
     @Body(new ZodValidationPipe(SetRolesSchema)) body: SetRolesInput,
   ): Promise<MyProfile> {
     return this.me.setRoles(user.id, body.roles);
+  }
+
+  @Put('interests')
+  interests(
+    @CurrentUser() user: RequestUser,
+    @Body(new ZodValidationPipe(SetInterestsSchema)) body: SetInterestsInput,
+  ): Promise<MyProfile> {
+    return this.me.setInterests(user.id, body.genreIds);
   }
 
   @Put('artist-profile')

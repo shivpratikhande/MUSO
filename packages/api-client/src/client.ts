@@ -3,6 +3,17 @@ import {
   isApiFailure,
   type ApiResponse,
   type ArtistDetail,
+  type CommentDto,
+  type CreateCommentInput,
+  type CreatePostInput,
+  type FeedTab,
+  type MediaType,
+  type NotificationDto,
+  type PostDto,
+  type PresignPostMediaInput,
+  type PresignedPostMedia,
+  type PublicProfile,
+  type ReportInput,
   type ArtistProfileInput,
   type ArtistSummary,
   type AuthSession,
@@ -179,6 +190,8 @@ export function createApiClient(opts: ApiClientOptions) {
       saveOrganizer: (body: OrganizerProfileInput) =>
         request<MyProfile>('PUT', '/me/organizer-profile', { body }),
       completeOnboarding: () => request<MyProfile>('POST', '/me/onboarding/complete'),
+      setInterests: (genreIds: string[]) =>
+        request<MyProfile>('PUT', '/me/interests', { body: { genreIds } }),
     },
     uploads: {
       presign: (body: PresignUploadInput) =>
@@ -213,6 +226,64 @@ export function createApiClient(opts: ApiClientOptions) {
         request<EventDetail>('PUT', `/events/${id}/schedule`, { body }),
       follow: (id: string) => request<EventDetail>('PUT', `/events/${id}/follow`),
       unfollow: (id: string) => request<EventDetail>('DELETE', `/events/${id}/follow`),
+    },
+    feed: (tab: FeedTab, cursor?: string, limit = 10) =>
+      request<Paginated<PostDto>>('GET', '/feed', { query: { tab, cursor, limit } }),
+    posts: {
+      presign: (body: PresignPostMediaInput) =>
+        request<PresignedPostMedia>('POST', '/posts/uploads/presign', { body }),
+      create: (body: CreatePostInput) => request<PostDto>('POST', '/posts', { body }),
+      get: (id: string) => request<PostDto>('GET', `/posts/${id}`),
+      remove: (id: string) => request<void>('DELETE', `/posts/${id}`),
+      mine: () => request<PostDto[]>('GET', '/posts/mine'),
+      saved: (cursor?: string) =>
+        request<Paginated<PostDto>>('GET', '/posts/saved', { query: { cursor } }),
+      like: (id: string, on: boolean) =>
+        request<PostDto>(on ? 'PUT' : 'DELETE', `/posts/${id}/like`),
+      save: (id: string, on: boolean) =>
+        request<PostDto>(on ? 'PUT' : 'DELETE', `/posts/${id}/save`),
+      byEvent: (eventId: string, cursor?: string, type?: MediaType) =>
+        request<Paginated<PostDto>>('GET', `/events/${eventId}/posts`, {
+          query: { cursor, type, limit: 30 },
+        }),
+      byArtist: (artistId: string, cursor?: string) =>
+        request<Paginated<PostDto>>('GET', `/artists/${artistId}/posts`, {
+          query: { cursor, limit: 30 },
+        }),
+      byUser: (userId: string, cursor?: string) =>
+        request<Paginated<PostDto>>('GET', `/users/${userId}/posts`, {
+          query: { cursor, limit: 30 },
+        }),
+      byHashtag: (tag: string, cursor?: string) =>
+        request<Paginated<PostDto>>('GET', `/hashtags/${encodeURIComponent(tag)}/posts`, {
+          query: { cursor, limit: 30 },
+        }),
+    },
+    comments: {
+      list: (postId: string, parentId?: string, cursor?: string) =>
+        request<Paginated<CommentDto>>('GET', `/posts/${postId}/comments`, {
+          query: { parentId, cursor, limit: 30 },
+        }),
+      create: (postId: string, body: CreateCommentInput) =>
+        request<CommentDto>('POST', `/posts/${postId}/comments`, { body }),
+      remove: (id: string) => request<void>('DELETE', `/comments/${id}`),
+    },
+    users: {
+      get: (handle: string) =>
+        request<PublicProfile>('GET', `/users/${encodeURIComponent(handle)}`),
+      follow: (id: string, on: boolean) =>
+        request<PublicProfile>(on ? 'PUT' : 'DELETE', `/users/${id}/follow`),
+      block: (id: string, on: boolean) =>
+        request<PublicProfile>(on ? 'PUT' : 'DELETE', `/users/${id}/block`),
+    },
+    notifications: {
+      list: (cursor?: string) =>
+        request<Paginated<NotificationDto>>('GET', '/notifications', { query: { cursor } }),
+      unreadCount: () => request<{ count: number }>('GET', '/notifications/unread-count'),
+      markRead: (ids?: string[]) => request<void>('POST', '/notifications/read', { body: { ids } }),
+    },
+    reports: {
+      create: (body: ReportInput) => request<{ ok: true }>('POST', '/reports', { body }),
     },
     admin: {
       pendingEvents: () => request<EventSummary[]>('GET', '/admin/events/pending'),

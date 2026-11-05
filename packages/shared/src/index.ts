@@ -6,3 +6,4 @@ export * from './schemas/events.js';
 export * from './schemas/health.js';
 export * from './schemas/profile.js';
 export * from './schemas/uploads.js';
+export * from './schemas/posts.js';

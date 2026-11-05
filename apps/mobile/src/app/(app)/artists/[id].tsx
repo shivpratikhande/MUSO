@@ -5,6 +5,8 @@ import { Linking, ScrollView, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { AppText, Avatar, Chip, ErrorState, ListRow, LoadingState } from '@/components/ui';
 import { EventCard } from '@/features/events/EventCard';
+import { postKeys } from '@/features/posts/keys';
+import { PostGrid } from '@/features/posts/PostGrid';
 import { api, errorMessage } from '@/services/api';
 import { useTheme } from '@/theme';
 
@@ -19,6 +21,10 @@ export default function ArtistScreen() {
   const insets = useSafeAreaInsets();
   const { id } = useLocalSearchParams<{ id: string }>();
   const artist = useQuery({ queryKey: ['artists', id], queryFn: () => api.artists.get(id) });
+  const captures = useQuery({
+    queryKey: postKeys.artist(id),
+    queryFn: () => api.posts.byArtist(id),
+  });
 
   if (artist.isPending)
     return (
@@ -92,6 +98,17 @@ export default function ArtistScreen() {
         <AppText variant="caption" tone="muted">
           {POLICY[a.contentUsagePolicy]}
         </AppText>
+
+        <AppText variant="label" tone="muted" style={{ marginTop: t.space.lg }}>
+          Captured at their shows
+        </AppText>
+        {captures.isPending ? (
+          <LoadingState />
+        ) : captures.data?.items.length ? (
+          <PostGrid posts={captures.data.items} />
+        ) : (
+          <AppText tone="muted">No fan moments yet.</AppText>
+        )}
 
         <AppText variant="label" tone="muted" style={{ marginTop: t.space.lg }}>
           Upcoming

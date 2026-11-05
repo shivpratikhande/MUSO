@@ -29,6 +29,12 @@ export default function AppLayout() {
       <Stack.Screen name="profile/artist" options={{ title: 'Artist page' }} />
       <Stack.Screen name="profile/creator" options={{ title: 'Creator profile' }} />
       <Stack.Screen name="profile/organizer" options={{ title: 'Organizer details' }} />
+      <Stack.Screen name="profile/interests" options={{ title: 'Interests' }} />
+      <Stack.Screen name="compose" options={{ title: 'New moment', presentation: 'modal' }} />
+      <Stack.Screen name="posts/[id]" options={{ title: '' }} />
+      <Stack.Screen name="users/[id]" options={{ title: '' }} />
+      <Stack.Screen name="hashtags/[tag]" options={{ title: '' }} />
+      <Stack.Screen name="saved" options={{ title: 'Saved' }} />
     </Stack>
   );
 }

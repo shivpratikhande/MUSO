@@ -1,11 +1,17 @@
 import {
   CreateBucketCommand,
+  DeleteObjectCommand,
+  GetObjectCommand,
   HeadBucketCommand,
   HeadObjectCommand,
   PutBucketPolicyCommand,
   PutObjectCommand,
   S3Client,
 } from '@aws-sdk/client-s3';
+import { createReadStream, createWriteStream } from 'node:fs';
+import { stat } from 'node:fs/promises';
+import { Readable } from 'node:stream';
+import { pipeline } from 'node:stream/promises';
 import { getSignedUrl } from '@aws-sdk/s3-request-presigner';
 import { BadRequestException, Injectable, Logger, OnModuleInit } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
@@ -46,6 +52,7 @@ export class StorageService implements OnModuleInit {
   /** Signs URLs against the host the phone can reach (signing is offline; no network). */
   private readonly signer: S3Client;
   private readonly bucket: string;
+  readonly privateBucket: string;
   private readonly publicBase: string;
 
   constructor(private readonly config: ConfigService<Env, true>) {
@@ -64,11 +71,24 @@ export class StorageService implements OnModuleInit {
     });
     this.signer = new S3Client({ ...common, endpoint: publicEndpoint });
     this.bucket = config.get('S3_BUCKET_PUBLIC', { infer: true });
+    this.privateBucket = config.get('S3_BUCKET_PRIVATE', { infer: true });
     this.publicBase = `${publicEndpoint.replace(/\/+$/, '')}/${this.bucket}`;
   }
 
   async onModuleInit(): Promise<void> {
     if (!this.config.get('S3_AUTO_CREATE_BUCKETS', { infer: true })) return;
+    try {
+      await this.s3.send(new HeadBucketCommand({ Bucket: this.privateBucket }));
+    } catch {
+      try {
+        await this.s3.send(new CreateBucketCommand({ Bucket: this.privateBucket }));
+        this.logger.log(`Created private bucket "${this.privateBucket}"`);
+      } catch (err) {
+        this.logger.warn(
+          `Could not create bucket "${this.privateBucket}": ${(err as Error).message}`,
+        );
+      }
+    }
     try {
       await this.s3.send(new HeadBucketCommand({ Bucket: this.bucket }));
     } catch {
@@ -143,6 +163,86 @@ export class StorageService implements OnModuleInit {
     } catch {
       throw this.badFile('That image hasn’t finished uploading. Please try again.');
     }
+  }
+
+  // ─────────────── Private bucket (fan media) ───────────────
+
+  /** Presigned PUT for an original capture. Key: originals/<userId>/<uuid>.<ext>. */
+  async presignOriginalUpload(userId: string, contentType: string, sizeBytes: number, ext: string) {
+    const key = `originals/${userId}/${randomUUID()}.${ext}`;
+    const uploadUrl = await getSignedUrl(
+      this.signer,
+      new PutObjectCommand({
+        Bucket: this.privateBucket,
+        Key: key,
+        ContentType: contentType,
+        ContentLength: sizeBytes,
+      }),
+      {
+        expiresIn: PRESIGN_TTL_SECONDS * 6,
+        signableHeaders: new Set(['content-type', 'content-length']),
+      },
+    );
+    return {
+      key,
+      uploadUrl,
+      headers: { 'Content-Type': contentType },
+      expiresAt: new Date(Date.now() + PRESIGN_TTL_SECONDS * 6 * 1000).toISOString(),
+    };
+  }
+
+  /**
+   * Short-lived signed GET for a private object. The signing time is rounded down to the hour so
+   * the URL stays identical for an hour (lets the app's image cache work), and is valid ≥ 1 hour.
+   */
+  async privateUrl(key: string | null | undefined): Promise<string | null> {
+    if (!key) return null;
+    const hour = 3_600_000;
+    const signingDate = new Date(Math.floor(Date.now() / hour) * hour);
+    return getSignedUrl(
+      this.signer,
+      new GetObjectCommand({ Bucket: this.privateBucket, Key: key }),
+      {
+        expiresIn: 7200,
+        signingDate,
+      },
+    );
+  }
+
+  async headPrivate(
+    key: string,
+  ): Promise<{ size: number; contentType: string | undefined } | null> {
+    try {
+      const h = await this.s3.send(new HeadObjectCommand({ Bucket: this.privateBucket, Key: key }));
+      return { size: h.ContentLength ?? 0, contentType: h.ContentType };
+    } catch {
+      return null;
+    }
+  }
+
+  async downloadPrivate(key: string, toPath: string): Promise<void> {
+    const res = await this.s3.send(new GetObjectCommand({ Bucket: this.privateBucket, Key: key }));
+    await pipeline(res.Body as Readable, createWriteStream(toPath));
+  }
+
+  async uploadPrivate(key: string, fromPath: string, contentType: string): Promise<void> {
+    const { size } = await stat(fromPath);
+    await this.s3.send(
+      new PutObjectCommand({
+        Bucket: this.privateBucket,
+        Key: key,
+        Body: createReadStream(fromPath),
+        ContentType: contentType,
+        ContentLength: size,
+        CacheControl: 'private, max-age=31536000, immutable',
+      }),
+    );
+  }
+
+  async deletePrivate(key: string): Promise<void> {
+    await this.s3
+      .send(new DeleteObjectCommand({ Bucket: this.privateBucket, Key: key }))
+      .catch(() => undefined);
   }
 
   async ping(): Promise<boolean> {

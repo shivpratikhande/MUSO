@@ -16,7 +16,10 @@ import { signOut } from '@/features/auth/session';
 import { useSession } from '@/features/auth/session-store';
 import { ROLE_COPY } from '@/features/profile/forms/RolesForm';
 import { useMe } from '@/features/profile/use-me';
-import { errorMessage } from '@/services/api';
+import { postKeys } from '@/features/posts/keys';
+import { PostGrid } from '@/features/posts/PostGrid';
+import { api, errorMessage } from '@/services/api';
+import { useQuery } from '@tanstack/react-query';
 import { useTheme } from '@/theme';
 
 export default function ProfileScreen() {
@@ -24,6 +27,12 @@ export default function ProfileScreen() {
   const me = useMe();
   const emailVerified = useSession((s) => s.user?.emailVerified ?? false);
   const [signingOut, setSigningOut] = useState(false);
+  const mine = useQuery({
+    queryKey: postKeys.mine,
+    queryFn: () => api.posts.mine(),
+    // Keep polling while anything is still processing.
+    refetchInterval: (q) => (q.state.data?.some((p) => p.status === 'PROCESSING') ? 3000 : false),
+  });
 
   const body = () => {
     if (me.isPending) return <LoadingState />;
@@ -129,14 +138,35 @@ export default function ProfileScreen() {
           </Card>
         ) : null}
 
+        <View style={{ gap: t.space.sm }}>
+          <AppText variant="label" tone="muted">
+            My uploads
+          </AppText>
+          {mine.isPending ? (
+            <LoadingState />
+          ) : mine.data?.length ? (
+            <PostGrid posts={mine.data} showStatus />
+          ) : (
+            <AppText tone="muted">
+              Nothing yet. Capture your first moment from the Create tab.
+            </AppText>
+          )}
+        </View>
+
         <View>
           <AppText variant="label" tone="muted">
             Settings
           </AppText>
+          <ListRow title="Saved moments" onPress={() => router.push('/saved')} />
           <ListRow
             title="Edit profile"
             subtitle="Photo, name, bio, links, privacy"
             onPress={() => router.push('/profile/edit')}
+          />
+          <ListRow
+            title="Interests"
+            subtitle={p.interests.map((g) => g.name).join(', ') || 'Pick genres for your feed'}
+            onPress={() => router.push('/profile/interests')}
           />
           <ListRow
             title="Your roles"

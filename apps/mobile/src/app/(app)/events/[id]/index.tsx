@@ -22,12 +22,17 @@ import {
   formatEventWhen,
   formatTime,
 } from '@/features/events/format';
+import { pickCapture } from '@/features/posts/capture';
+import { useDraft } from '@/features/posts/draft-store';
+import { postKeys } from '@/features/posts/keys';
+import { PostGrid } from '@/features/posts/PostGrid';
 import { api, errorMessage } from '@/services/api';
 import { useTheme } from '@/theme';
 
 export default function EventDetailScreen() {
   const t = useTheme();
   const insets = useSafeAreaInsets();
+  const setDraft = useDraft((s) => s.set);
   const { id } = useLocalSearchParams<{ id: string }>();
   const qc = useQueryClient();
   const event = useQuery({ queryKey: eventKeys.detail(id), queryFn: () => api.events.get(id) });
@@ -49,6 +54,11 @@ export default function EventDetailScreen() {
     },
   });
   const cancel = useMutation({ mutationFn: () => api.events.cancel(id), onSuccess: onUpdated });
+  const moments = useQuery({
+    queryKey: postKeys.event(id),
+    queryFn: () => api.posts.byEvent(id),
+    enabled: event.data?.reviewStatus === 'APPROVED',
+  });
 
   if (event.isPending)
     return (
@@ -71,6 +81,8 @@ export default function EventDetailScreen() {
     );
   }
   const e = event.data;
+  const canCapture =
+    e.reviewStatus === 'APPROVED' && e.status === 'LIVE' && e.recordingPolicy !== 'NOT_ALLOWED';
   const editable = e.viewer.canEdit && e.status !== 'CANCELLED' && e.status !== 'COMPLETED';
   const mutationError = [follow, review, cancel].find((m) => m.isError)?.error;
 
@@ -199,7 +211,49 @@ export default function EventDetailScreen() {
           </AppText>
         </Card>
 
+        {canCapture ? (
+          <Button
+            label="📸 Capture this moment"
+            onPress={async () => {
+              try {
+                const draft = await pickCapture(
+                  e.recordingPolicy === 'PHOTOS_ONLY' ? 'camera-photo' : 'library',
+                  e.id,
+                );
+                if (draft) {
+                  setDraft(draft);
+                  router.push('/compose');
+                }
+              } catch (err) {
+                Alert.alert('Couldn’t open camera', errorMessage(err));
+              }
+            }}
+          />
+        ) : null}
+
         <AppText>{e.description}</AppText>
+
+        {e.reviewStatus === 'APPROVED' ? (
+          <View style={{ gap: t.space.sm }}>
+            <AppText variant="label" tone="muted">
+              Moments
+              {moments.data?.items.length
+                ? ` · ${moments.data.items.length}${moments.data.nextCursor ? '+' : ''}`
+                : ''}
+            </AppText>
+            {moments.isPending ? (
+              <LoadingState />
+            ) : moments.data?.items.length ? (
+              <PostGrid posts={moments.data.items} />
+            ) : (
+              <AppText tone="muted">
+                {e.status === 'UPCOMING'
+                  ? 'Photos and videos from the crowd will appear here once the show starts.'
+                  : 'No moments shared yet.'}
+              </AppText>
+            )}
+          </View>
+        ) : null}
 
         <View style={{ gap: t.space.xs }}>
           <AppText variant="label" tone="muted">

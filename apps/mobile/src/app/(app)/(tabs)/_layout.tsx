@@ -1,9 +1,17 @@
+import { useQuery } from '@tanstack/react-query';
 import { NativeTabs } from 'expo-router/native-tabs';
+import { api } from '@/services/api';
 import { useTheme } from '@/theme';
 
 /** The five primary destinations. Order and naming follow the product spec. */
 export default function TabsLayout() {
   const t = useTheme();
+  const unread = useQuery({
+    queryKey: ['notifications', 'unread'],
+    queryFn: () => api.notifications.unreadCount(),
+    refetchInterval: 30_000,
+  });
+  const count = unread.data?.count ?? 0;
   return (
     <NativeTabs tintColor={t.c.text} labelStyle={{ selected: { color: t.c.text } }}>
       <NativeTabs.Trigger name="index">
@@ -26,6 +34,9 @@ export default function TabsLayout() {
       </NativeTabs.Trigger>
       <NativeTabs.Trigger name="activity">
         <NativeTabs.Trigger.Label>Activity</NativeTabs.Trigger.Label>
+        {count > 0 ? (
+          <NativeTabs.Trigger.Badge>{count > 99 ? '99+' : String(count)}</NativeTabs.Trigger.Badge>
+        ) : null}
         <NativeTabs.Trigger.Icon
           sf={{ default: 'bell', selected: 'bell.fill' }}
           md="notifications"

@@ -14,6 +14,9 @@ import { GenresModule } from './modules/genres/genres.module.js';
 import { HealthModule } from './modules/health/health.module.js';
 import { MailModule } from './modules/mail/mail.module.js';
 import { MeModule } from './modules/me/me.module.js';
+import { NotificationsModule } from './modules/notifications/notifications.module.js';
+import { ContentModule } from './modules/posts/content.module.js';
+import { ReportsModule } from './modules/reports/reports.module.js';
 import { UploadsModule } from './modules/uploads/uploads.module.js';
 import { RedisModule } from './redis/redis.module.js';
 import { StorageModule } from './storage/storage.module.js';
@@ -70,6 +73,9 @@ import { StorageModule } from './storage/storage.module.js';
     GenresModule,
     EventsModule,
     ArtistsModule,
+    NotificationsModule,
+    ContentModule,
+    ReportsModule,
   ],
   providers: [
     { provide: APP_GUARD, useClass: ThrottlerGuard },

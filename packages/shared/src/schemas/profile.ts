@@ -126,6 +126,8 @@ export interface MyProfile {
   artistProfile: ArtistProfileDto | null;
   creatorProfile: CreatorProfileDto | null;
   organizerProfile: OrganizerProfileDto | null;
+  /** Fan genre interests (feed personalisation). */
+  interests: Genre[];
 }
 
 export interface ArtistSummary {

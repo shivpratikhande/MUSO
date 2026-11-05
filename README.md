@@ -37,14 +37,14 @@ packages/
 ### 1. Prerequisites
 
 - Node **22.18+** and pnpm **10** (`corepack enable`)
-- PostgreSQL 17, Redis and MinIO (S3-compatible storage for images):
+- PostgreSQL 17, Redis, MinIO (S3-compatible storage) and ffmpeg (video processing):
   ```sh
-  brew install postgresql@17 redis minio
+  brew install postgresql@17 redis minio ffmpeg
   brew services start postgresql@17
   brew services start redis
   brew services start minio      # http://localhost:9000, login minioadmin / minioadmin
   ```
-  The API creates the `muso-public` bucket automatically on first boot (`S3_AUTO_CREATE_BUCKETS=true`).
+  The API creates the `muso-public` and `muso-private` buckets automatically on first boot (`S3_AUTO_CREATE_BUCKETS=true`).
   _Or with Docker:_ `docker compose up -d` (Postgres, Redis, MinIO).
 - **Xcode** (from the App Store) for the iOS simulator, then `xcode-select -s /Applications/Xcode.app`
 
@@ -135,6 +135,17 @@ Quickest way to try it without Xcode is **Expo Go**. Sign in to the same Expo ac
 ## Uploads
 
 `POST /v1/uploads/presign` returns a 5-minute presigned PUT URL. The content type and exact byte length are signed, and keys look like `<folder>/<userId>/<uuid>.<ext>`. Before saving a key on a profile or event, the API checks that it belongs to the caller and that the upload actually completed. Avatars, covers and posters live in a public-read bucket. Private originals for fan media come in Milestone 3.
+
+## Fan media (captures)
+
+1. The app asks `POST /v1/posts/uploads/presign` for a signed PUT URL to the **private** bucket (`originals/<userId>/…`) and uploads with a progress bar.
+2. `POST /v1/posts` validates ownership, type, event status, the event's recording policy and the tagged artists' fan-recording policy, then queues a job. Publishing is idempotent via `clientRequestId`.
+3. The **media worker** (BullMQ on Redis, in-process, `MEDIA_WORKER_ENABLED`):
+   - **Photos:** auto-rotated and resized to WebP, with all metadata including GPS removed, plus a thumbnail.
+   - **Videos:** probed, capped at 3 minutes, transcoded to H.264/AAC MP4 with faststart and metadata stripped, plus a poster thumbnail.
+4. Originals are never served. Derivatives are served through short-lived **signed URLs**, so Milestone 4 can gate paid content.
+
+Fan captures are never marked official. A post is only "official" when the tagged artist posts it themselves.
 
 ## Security notes
 

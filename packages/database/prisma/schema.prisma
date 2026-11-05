@@ -47,15 +47,27 @@ model User {
   updatedAt       DateTime  @updatedAt @map("updated_at")
   deletedAt       DateTime? @map("deleted_at")
 
-  roles            UserRole[]
-  sessions         Session[]
-  authCodes        AuthCode[]
-  artistProfile    ArtistProfile?
-  creatorProfile   CreatorProfile?
-  organizerProfile OrganizerProfile?
-  organizedEvents  Event[]           @relation("EventOrganizer")
-  reviewedEvents   Event[]           @relation("EventReviewer")
-  eventFollows     EventFollow[]
+  roles             UserRole[]
+  sessions          Session[]
+  authCodes         AuthCode[]
+  artistProfile     ArtistProfile?
+  creatorProfile    CreatorProfile?
+  organizerProfile  OrganizerProfile?
+  organizedEvents   Event[]           @relation("EventOrganizer")
+  reviewedEvents    Event[]           @relation("EventReviewer")
+  eventFollows      EventFollow[]
+  posts             Post[]
+  likes             Like[]
+  savedPosts        SavedPost[]
+  comments          Comment[]
+  following         Follow[]          @relation("Follower")
+  followers         Follow[]          @relation("Followee")
+  blocking          Block[]           @relation("Blocker")
+  blockedBy         Block[]           @relation("Blocked")
+  reports           Report[]          @relation("Reporter")
+  notifications     Notification[]    @relation("NotificationRecipient")
+  notificationsSent Notification[]    @relation("NotificationActor")
+  interests         UserInterest[]
 
   @@map("users")
 }
@@ -82,6 +94,7 @@ model Genre {
   updatedAt DateTime @updatedAt @map("updated_at")
 
   artists ArtistGenre[]
+  fans    UserInterest[]
 
   @@map("genres")
 }
@@ -147,6 +160,7 @@ model ArtistProfile {
   user          User                @relation(fields: [userId], references: [id], onDelete: Cascade)
   genres        ArtistGenre[]
   eventSlots    EventArtist[]
+  taggedIn      PostArtist[]
   scheduleItems EventScheduleItem[]
 
   @@index([stageName])
@@ -239,6 +253,7 @@ model Event {
   artists    EventArtist[]
   schedule   EventScheduleItem[]
   followers  EventFollow[]
+  posts      Post[]
 
   @@index([reviewStatus, startsAt])
   @@index([reviewStatus, endsAt])
@@ -304,4 +319,283 @@ model EventFollow {
   @@id([userId, eventId])
   @@index([eventId])
   @@map("event_follows")
+}
+
+// ──────────────────────────── Content & social (M3) ────────────────────────────
+
+/// Fan genre interests used to personalise the feed.
+model UserInterest {
+  userId    String   @map("user_id") @db.Uuid
+  genreId   String   @map("genre_id") @db.Uuid
+  createdAt DateTime @default(now()) @map("created_at")
+
+  user  User  @relation(fields: [userId], references: [id], onDelete: Cascade)
+  genre Genre @relation(fields: [genreId], references: [id], onDelete: Cascade)
+
+  @@id([userId, genreId])
+  @@map("user_interests")
+}
+
+enum MediaType {
+  PHOTO
+  VIDEO
+}
+
+enum PostStatus {
+  /// Upload received, derivatives being generated.
+  PROCESSING
+  PUBLISHED
+  /// Media couldn't be processed (corrupt / unsupported / too long).
+  FAILED
+}
+
+enum ModerationStatus {
+  VISIBLE
+  /// Hidden by a moderator or automatically after enough reports.
+  HIDDEN
+}
+
+/// Only FREE is accepted until Milestone 4.
+enum MonetizationMode {
+  FREE
+  PAY_TO_UNLOCK
+  PAY_WHAT_YOU_WANT
+}
+
+/// Whether the artist has licensed this capture for their own use. Fan captures are never
+/// treated as official artist content by default.
+enum ContentPermissionStatus {
+  NOT_REQUESTED
+  REQUESTED
+  GRANTED
+  DECLINED
+}
+
+model Post {
+  id                String                  @id @default(uuid(7)) @db.Uuid
+  authorId          String                  @map("author_id") @db.Uuid
+  eventId           String?                 @map("event_id") @db.Uuid
+  type              MediaType
+  caption           String                  @default("")
+  hashtags          String[]
+  status            PostStatus              @default(PROCESSING)
+  failureReason     String?                 @map("failure_reason")
+  moderationStatus  ModerationStatus        @default(VISIBLE) @map("moderation_status")
+  monetizationMode  MonetizationMode        @default(FREE) @map("monetization_mode")
+  /// True only when the author is one of the tagged artists.
+  isOfficial        Boolean                 @default(false) @map("is_official")
+  permissionStatus  ContentPermissionStatus @default(NOT_REQUESTED) @map("permission_status")
+  /// Uploader confirmed they captured this and have the right to share it.
+  rightsConfirmedAt DateTime                @map("rights_confirmed_at")
+  /// Client idempotency key: retrying a publish never creates duplicates.
+  clientRequestId   String                  @map("client_request_id")
+  likeCount         Int                     @default(0) @map("like_count")
+  commentCount      Int                     @default(0) @map("comment_count")
+  saveCount         Int                     @default(0) @map("save_count")
+  reportCount       Int                     @default(0) @map("report_count")
+  publishedAt       DateTime?               @map("published_at")
+  createdAt         DateTime                @default(now()) @map("created_at")
+  updatedAt         DateTime                @updatedAt @map("updated_at")
+  deletedAt         DateTime?               @map("deleted_at")
+
+  author        User           @relation(fields: [authorId], references: [id], onDelete: Cascade)
+  event         Event?         @relation(fields: [eventId], references: [id], onDelete: SetNull)
+  media         PostMedia[]
+  artists       PostArtist[]
+  likes         Like[]
+  saves         SavedPost[]
+  comments      Comment[]
+  notifications Notification[]
+
+  @@unique([authorId, clientRequestId])
+  @@index([status, moderationStatus, publishedAt])
+  @@index([eventId, publishedAt])
+  @@index([authorId, publishedAt])
+  @@index([hashtags], type: Gin)
+  @@map("posts")
+}
+
+/// Originals live in the private bucket and are never served directly.
+/// Display/thumbnail derivatives are generated by the media worker.
+model PostMedia {
+  id          String    @id @default(uuid(7)) @db.Uuid
+  postId      String    @map("post_id") @db.Uuid
+  position    Int       @default(0)
+  type        MediaType
+  originalKey String    @unique @map("original_key")
+  displayKey  String?   @map("display_key")
+  thumbKey    String?   @map("thumb_key")
+  mimeType    String    @map("mime_type")
+  sizeBytes   Int       @map("size_bytes")
+  width       Int?
+  height      Int?
+  durationMs  Int?      @map("duration_ms")
+  createdAt   DateTime  @default(now()) @map("created_at")
+  updatedAt   DateTime  @updatedAt @map("updated_at")
+
+  post Post @relation(fields: [postId], references: [id], onDelete: Cascade)
+
+  @@unique([postId, position])
+  @@map("post_media")
+}
+
+model PostArtist {
+  postId   String @map("post_id") @db.Uuid
+  artistId String @map("artist_id") @db.Uuid
+
+  post   Post          @relation(fields: [postId], references: [id], onDelete: Cascade)
+  artist ArtistProfile @relation(fields: [artistId], references: [id], onDelete: Cascade)
+
+  @@id([postId, artistId])
+  @@index([artistId])
+  @@map("post_artists")
+}
+
+model Like {
+  userId    String   @map("user_id") @db.Uuid
+  postId    String   @map("post_id") @db.Uuid
+  createdAt DateTime @default(now()) @map("created_at")
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  post Post @relation(fields: [postId], references: [id], onDelete: Cascade)
+
+  @@id([userId, postId])
+  @@index([postId, createdAt])
+  @@map("likes")
+}
+
+model SavedPost {
+  userId    String   @map("user_id") @db.Uuid
+  postId    String   @map("post_id") @db.Uuid
+  createdAt DateTime @default(now()) @map("created_at")
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  post Post @relation(fields: [postId], references: [id], onDelete: Cascade)
+
+  @@id([userId, postId])
+  @@index([userId, createdAt])
+  @@map("saved_posts")
+}
+
+model Comment {
+  id        String    @id @default(uuid(7)) @db.Uuid
+  postId    String    @map("post_id") @db.Uuid
+  authorId  String    @map("author_id") @db.Uuid
+  /// One level of replies: the parent must be a top-level comment.
+  parentId  String?   @map("parent_id") @db.Uuid
+  body      String
+  createdAt DateTime  @default(now()) @map("created_at")
+  updatedAt DateTime  @updatedAt @map("updated_at")
+  deletedAt DateTime? @map("deleted_at")
+
+  post          Post           @relation(fields: [postId], references: [id], onDelete: Cascade)
+  author        User           @relation(fields: [authorId], references: [id], onDelete: Cascade)
+  parent        Comment?       @relation("Replies", fields: [parentId], references: [id], onDelete: Cascade)
+  replies       Comment[]      @relation("Replies")
+  notifications Notification[]
+
+  @@index([postId, createdAt])
+  @@index([parentId, createdAt])
+  @@map("comments")
+}
+
+/// User-to-user follows (fans following artists and creators).
+model Follow {
+  followerId String   @map("follower_id") @db.Uuid
+  followeeId String   @map("followee_id") @db.Uuid
+  createdAt  DateTime @default(now()) @map("created_at")
+
+  follower User @relation("Follower", fields: [followerId], references: [id], onDelete: Cascade)
+  followee User @relation("Followee", fields: [followeeId], references: [id], onDelete: Cascade)
+
+  @@id([followerId, followeeId])
+  @@index([followeeId])
+  @@map("follows")
+}
+
+/// Blocking hides each other's content and prevents follows, comments and mentions.
+model Block {
+  blockerId String   @map("blocker_id") @db.Uuid
+  blockedId String   @map("blocked_id") @db.Uuid
+  createdAt DateTime @default(now()) @map("created_at")
+
+  blocker User @relation("Blocker", fields: [blockerId], references: [id], onDelete: Cascade)
+  blocked User @relation("Blocked", fields: [blockedId], references: [id], onDelete: Cascade)
+
+  @@id([blockerId, blockedId])
+  @@index([blockedId])
+  @@map("blocks")
+}
+
+enum ReportTargetType {
+  POST
+  COMMENT
+  USER
+}
+
+enum ReportReason {
+  SPAM
+  HARASSMENT
+  NUDITY
+  VIOLENCE
+  COPYRIGHT
+  PRIVACY
+  OTHER
+}
+
+enum ReportStatus {
+  OPEN
+  ACTIONED
+  DISMISSED
+}
+
+model Report {
+  id         String           @id @default(uuid(7)) @db.Uuid
+  reporterId String           @map("reporter_id") @db.Uuid
+  targetType ReportTargetType @map("target_type")
+  targetId   String           @map("target_id") @db.Uuid
+  reason     ReportReason
+  details    String?
+  status     ReportStatus     @default(OPEN)
+  createdAt  DateTime         @default(now()) @map("created_at")
+  updatedAt  DateTime         @updatedAt @map("updated_at")
+
+  reporter User @relation("Reporter", fields: [reporterId], references: [id], onDelete: Cascade)
+
+  /// One report per person per target.
+  @@unique([reporterId, targetType, targetId])
+  @@index([status, createdAt])
+  @@index([targetType, targetId])
+  @@map("reports")
+}
+
+enum NotificationType {
+  NEW_FOLLOWER
+  POST_LIKED
+  POST_COMMENTED
+  COMMENT_REPLIED
+  MENTIONED
+  TAGGED_IN_POST
+  POST_PUBLISHED
+  POST_FAILED
+}
+
+model Notification {
+  id        String           @id @default(uuid(7)) @db.Uuid
+  userId    String           @map("user_id") @db.Uuid
+  type      NotificationType
+  actorId   String?          @map("actor_id") @db.Uuid
+  postId    String?          @map("post_id") @db.Uuid
+  commentId String?          @map("comment_id") @db.Uuid
+  readAt    DateTime?        @map("read_at")
+  createdAt DateTime         @default(now()) @map("created_at")
+
+  user    User     @relation("NotificationRecipient", fields: [userId], references: [id], onDelete: Cascade)
+  actor   User?    @relation("NotificationActor", fields: [actorId], references: [id], onDelete: Cascade)
+  post    Post?    @relation(fields: [postId], references: [id], onDelete: Cascade)
+  comment Comment? @relation(fields: [commentId], references: [id], onDelete: Cascade)
+
+  @@index([userId, createdAt])
+  @@index([userId, readAt])
+  @@map("notifications")
 }

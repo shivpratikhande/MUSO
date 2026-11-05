@@ -19,6 +19,7 @@ const profileInclude = {
   artistProfile: { include: { genres: { include: { genre: true } } } },
   creatorProfile: true,
   organizerProfile: true,
+  interests: { include: { genre: true } },
 } as const satisfies Prisma.UserInclude;
 
 type FullUser = Prisma.UserGetPayload<{ include: typeof profileInclude }>;
@@ -125,6 +126,18 @@ export class MeService {
     return this.get(userId);
   }
 
+  /** Replaces the fan's genre interests. */
+  async setInterests(userId: string, genreIds: string[]): Promise<MyProfile> {
+    const ids = [...new Set(genreIds)];
+    const found = await this.prisma.genre.count({ where: { id: { in: ids } } });
+    if (found !== ids.length) throw badRequest('One or more genres are invalid');
+    await this.prisma.$transaction([
+      this.prisma.userInterest.deleteMany({ where: { userId } }),
+      this.prisma.userInterest.createMany({ data: ids.map((genreId) => ({ userId, genreId })) }),
+    ]);
+    return this.get(userId);
+  }
+
   /** Marks onboarding done once every chosen role has its profile filled in. */
   async completeOnboarding(userId: string): Promise<MyProfile> {
     const me = await this.get(userId);
@@ -189,6 +202,11 @@ export class MeService {
             website: u.organizerProfile.website,
           }
         : null,
+      interests: u.interests.map(({ genre }) => ({
+        id: genre.id,
+        slug: genre.slug,
+        name: genre.name,
+      })),
     };
   }
 }

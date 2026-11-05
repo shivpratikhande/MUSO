@@ -33,11 +33,20 @@ export const EnvSchema = z.object({
   S3_ACCESS_KEY_ID: z.string().min(1),
   S3_SECRET_ACCESS_KEY: z.string().min(1),
   S3_BUCKET_PUBLIC: z.string().min(3).default('muso-public'),
+  /** Originals and fan-media derivatives. Never publicly readable; served via signed URLs. */
+  S3_BUCKET_PRIVATE: z.string().min(3).default('muso-private'),
   S3_FORCE_PATH_STYLE: z
     .enum(['true', 'false'])
     .default('true')
     .transform((v) => v === 'true'),
   /** Create buckets + public-read policy on boot (dev/test only). */
+  /** Run the media-processing worker in this process (disable on API-only replicas). */
+  MEDIA_WORKER_ENABLED: z
+    .enum(['true', 'false'])
+    .default('true')
+    .transform((v) => v === 'true'),
+  FFMPEG_PATH: z.string().default('ffmpeg'),
+  FFPROBE_PATH: z.string().default('ffprobe'),
   S3_AUTO_CREATE_BUCKETS: z
     .enum(['true', 'false'])
     .default('false')

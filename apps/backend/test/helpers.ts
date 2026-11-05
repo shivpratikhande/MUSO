@@ -101,6 +101,45 @@ export async function cleanupTestUsers(prisma: PrismaService): Promise<void> {
     select: { id: true },
   });
   const ids = users.map((u) => u.id);
+  await prisma.post.deleteMany({ where: { authorId: { in: ids } } });
   await prisma.event.deleteMany({ where: { organizerId: { in: ids } } });
   await prisma.user.deleteMany({ where: { id: { in: ids } } });
+}
+
+/** Presigns and uploads an original capture to the private bucket. Returns the storage key. */
+export async function uploadOriginal(
+  app: INestApplication,
+  user: TestUser,
+  type: 'PHOTO' | 'VIDEO',
+  body: Buffer,
+  contentType: string,
+): Promise<string> {
+  const res = await request(app.getHttpServer())
+    .post('/v1/posts/uploads/presign')
+    .set(user.auth)
+    .send({ type, contentType, sizeBytes: body.length })
+    .expect(201);
+  const { uploadUrl, headers, key } = res.body.data;
+  const put = await fetch(uploadUrl, { method: 'PUT', headers, body: new Uint8Array(body) });
+  if (!put.ok) throw new Error(`upload failed: ${put.status}`);
+  return key;
+}
+
+/** Polls a post until it leaves PROCESSING. */
+export async function waitForPost(
+  app: INestApplication,
+  user: TestUser,
+  id: string,
+  timeoutMs = 45_000,
+) {
+  const until = Date.now() + timeoutMs;
+  for (;;) {
+    const res = await request(app.getHttpServer())
+      .get(`/v1/posts/${id}`)
+      .set(user.auth)
+      .expect(200);
+    if (res.body.data.status !== 'PROCESSING') return res.body.data;
+    if (Date.now() > until) throw new Error(`post ${id} still processing`);
+    await new Promise((r) => setTimeout(r, 250));
+  }
 }

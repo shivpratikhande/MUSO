@@ -10,11 +10,11 @@ A UI that exists but isn't wired to the backend is `[~]`, never `[x]`.
 
 ## 📍 Current status — 2026-11-06
 
-**Milestone 2 built. The backend is fully tested, but the new mobile screens haven't been tapped through on a phone yet.**
-- ✅ Backend: **57/57 e2e tests** pass (auth, profiles, roles, onboarding, real uploads to MinIO, events, lineup, schedule, review, follow, discovery, pagination) plus unit tests. Every monorepo typecheck, lint and test task passes.
-- ✅ Mobile: typecheck, ESLint and the iOS bundle pass. Milestone 1 ran on an iPhone in Expo Go (welcome screen and sign-up confirmed).
-- ⚠️ The Milestone 2 screens (onboarding, profile, events, lineup, schedule, review) need an on-device pass.
-- ⏭ Supporter "interests" moved to Milestone 3, where the feed uses them.
+**Milestone 3 built. The backend is fully tested, including real photo and video processing. The mobile screens haven't been tapped through on a phone yet.**
+- ✅ Backend: **79/79 e2e tests** pass. They cover photo processing (EXIF and GPS stripped), video transcoding, the 3-minute limit, idempotent publish, recording-policy and artist-consent rules, likes, saves, comments and replies, follows, blocks, every feed tab, reports with auto-hide, and notifications. Every monorepo typecheck, lint and test task passes.
+- ✅ Mobile: typecheck, ESLint and the iOS bundle pass.
+- ⚠️ On-device pass still needed for the Milestone 2 and 3 screens: capture, compose, feed, post detail, activity, profiles.
+- ℹ️ Video trimming uses the native iOS editor in the picker. Android has no trim UI yet.
 - ⏭ Foundry / contracts moved to Milestone 6.
 
 ---
@@ -128,39 +128,39 @@ A UI that exists but isn't wired to the backend is `[~]`, never `[x]`.
 ## Milestone 3 — Capture & Social
 
 ### Capture & upload
-- [ ] Camera: photo capture
-- [ ] Camera: video recording
-- [ ] Gallery picker (photos + videos)
-- [ ] Media preview
-- [ ] Video trimming
-- [ ] Caption + hashtags
-- [ ] Event selection
-- [ ] Artist tagging
-- [ ] Rights confirmation ("I captured this and have the right to upload")
-- [ ] Format + size validation
-- [ ] Upload progress, retry, interrupted-upload handling
-- [ ] Originals stored privately; optimized versions + thumbnails generated
-- [ ] Background media processing job (Redis queue)
-- [ ] Content metadata stored (creator, event, artists, type, caption, media, thumbnail, duration, monetization, access, moderation, permission, publication status)
-- [ ] Fan uploads never auto-marked as official artist content
+- [x] Camera: photo capture
+- [x] Camera: video recording (≤ 3 min)
+- [x] Gallery picker (photos + videos)
+- [x] Media preview
+- [~] Video trimming (native iOS trim in picker; Android has none yet)
+- [x] Caption + hashtags (parsed server-side, tappable)
+- [x] Event selection (live or finished events only; recording policy enforced)
+- [x] Artist tagging (lineup shortcuts + search; artist NO_RECORDINGS respected)
+- [x] Rights confirmation ("I captured this and have the right to upload")
+- [x] Format + size validation (client + server; photos ≤ 25 MB, videos ≤ 300 MB / 3 min)
+- [x] Upload progress, retry, cancel; idempotent publish via clientRequestId
+- [x] Originals in a private bucket; WebP photo + H.264 MP4 derivatives and thumbnails; served by signed URLs
+- [x] Background media processing job (BullMQ on Redis, retries, per-env queues)
+- [x] Content metadata stored (creator, event, artists, type, caption, media, thumbnail, duration, monetization, moderation, permission, publication status)
+- [x] Fan uploads never auto-marked as official artist content
 
 ### Feed & social
-- [ ] Supporter interests (genres) for personalisation
-- [ ] Discover feed: For You · Trending · Live Events · Around You · Artists · Photography · Videos
-- [ ] Infinite scroll + cursor pagination
-- [ ] Video playback in feed
-- [ ] Content detail / video viewer / photo gallery
-- [ ] Event content feed + event gallery
-- [ ] Artist page: fan-captured content section
-- [ ] Like / unlike
-- [ ] Comment + reply
-- [ ] Mentions
-- [ ] Save
-- [ ] Share
-- [ ] Follow / unfollow (artists, creators)
-- [ ] Report
-- [ ] Block
-- [ ] In-app notifications for social activity
+- [x] Supporter interests (genres) for personalisation (onboarding step + profile)
+- [x] Discover feed: For You · Trending · Live Events · Around You · Artists · Photography · Videos
+- [x] Infinite scroll + cursor pagination
+- [x] Video playback in feed (most visible video autoplays muted)
+- [x] Content detail / video viewer / photo gallery
+- [x] Event content feed + event gallery (+ "Capture this moment" when live)
+- [x] Artist page: fan-captured content section
+- [x] Like / unlike (optimistic, idempotent counters)
+- [x] Comment + reply (one level, cascading delete)
+- [x] Mentions (notifications, tappable)
+- [x] Save
+- [x] Share (native share sheet with muso:// link)
+- [x] Follow / unfollow (artists, creators)
+- [x] Report (posts, comments, accounts; 5 reports auto-hide; admin resolve API)
+- [x] Block (hides content both ways, removes follows)
+- [x] In-app notifications for social activity (Activity tab + unread badge)
 
 ---
 
