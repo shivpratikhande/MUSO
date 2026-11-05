@@ -28,17 +28,18 @@ export default function WelcomeScreen() {
   const insets = useSafeAreaInsets();
   const { width, height } = useWindowDimensions();
   const headlineSize = Math.min(width * 0.19, 88);
-  // Hero (matches the mockup): head starts at ~17% height, the figure runs down to ~78%
-  // (its hard bottom crop hides under the white panel), face centred at ~66% width.
-  // The right shoulder is allowed to run off-screen.
-  const heroTop = height * 0.17;
-  const heroHeight = height * 0.61;
+  // Hero, per the mockup: sized by WIDTH (~95%), left edge at ~15% so it stays in the right
+  // half beside the headline, right shoulder runs off-screen. Its bottom must stay above the
+  // tagline (≈ buttons 136 + copy 72 + gaps 38 above the bottom inset) so text never sits on it.
+  const heroTop = height * 0.16;
+  const copyTop = height - insets.bottom - 256;
+  const heroHeight = Math.min(width * 0.95 * HERO_ASPECT, copyTop - heroTop);
   const heroWidth = heroHeight / HERO_ASPECT;
-  const heroLeft = width * 0.66 - heroWidth * 0.5;
-  // Crown sits on top of the turban, toward its right side; it tracks the photo, not the screen.
-  const crownSize = width * 0.26;
-  const crownLeft = Math.min(heroLeft + heroWidth * 0.62, width - crownSize - 10);
-  const crownTop = heroTop + heroHeight * 0.02 - crownSize * 0.62 * 0.9;
+  const heroLeft = width - heroWidth * 0.86;
+  // Crown sits just above the right side of the turban; it tracks the photo, not the screen.
+  const crownSize = width * 0.21;
+  const crownLeft = Math.min(heroLeft + heroWidth * 0.58, width - crownSize - 12);
+  const crownTop = heroTop + heroHeight * 0.03 - crownSize * 0.62;
 
   return (
     <View style={styles.fill}>
@@ -49,15 +50,21 @@ export default function WelcomeScreen() {
       <View style={[styles.hero, { top: heroTop, left: heroLeft }]} pointerEvents="none">
         <HeroArt width={heroWidth} />
       </View>
-      <Foreground />
+      <Foreground width={width} height={height} edgeY={heroTop + heroHeight} />
       <View style={{ position: 'absolute', top: crownTop, left: crownLeft }} pointerEvents="none">
         <Crown size={crownSize} />
       </View>
-      <View style={{ position: 'absolute', top: height * 0.6, left: 26 }} pointerEvents="none">
-        <Sparks size={52} rotate={-150} delay={150} />
+      <View
+        style={{ position: 'absolute', top: heroTop + heroHeight * 0.74, left: 18 }}
+        pointerEvents="none"
+      >
+        <Sparks size={48} rotate={-150} delay={150} />
       </View>
-      <View style={{ position: 'absolute', top: height * 0.57, right: 30 }} pointerEvents="none">
-        <Sparks size={44} rotate={20} delay={400} />
+      <View
+        style={{ position: 'absolute', top: heroTop + heroHeight * 0.66, right: 12 }}
+        pointerEvents="none"
+      >
+        <Sparks size={40} rotate={20} delay={400} />
       </View>
 
       <View

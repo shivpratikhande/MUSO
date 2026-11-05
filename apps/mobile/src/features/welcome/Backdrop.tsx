@@ -54,18 +54,29 @@ export function Backdrop() {
  * Drawn above the hero: the white panel the tagline + buttons sit on. It also hides the
  * hard crop at the bottom of the cut-out photo.
  */
-export function Foreground() {
+export function Foreground({
+  width: w,
+  height: h,
+  edgeY: y,
+}: {
+  width: number;
+  height: number;
+  /** Where the photo's hard bottom crop is (px); the jagged edge always sits above it. */
+  edgeY: number;
+}) {
   const t = useTheme();
+  const white = `M0 ${y - 44} L${w * 0.32} ${y - 22} L${w * 0.55} ${y - 34} L${w * 0.7} ${y - 4}
+    L${w} ${y - 18} V${h} H0 Z`;
+  const wedge = `M${w * 0.7} ${y - 4} L${w} ${y - 18} V${y + 120}
+    C${w * 0.88} ${y + 96} ${w * 0.8} ${y + 52} ${w * 0.66} ${y + 34} Z`;
   return (
-    <Svg
-      style={StyleSheet.absoluteFill}
-      viewBox={VB}
-      preserveAspectRatio="none"
-      pointerEvents="none"
-    >
-      <Path d="M0 548 L235 566 L285 650 L390 640 V844 H0 Z" fill={t.palette.white} />
-      <Path d="M285 650 L390 640 V770 C350 740 300 720 270 700 Z" fill={t.palette.violet} />
-      <Path d="M0 795 C80 775 180 805 240 844 H0 Z" fill={t.palette.violet} />
+    <Svg style={StyleSheet.absoluteFill} pointerEvents="none">
+      <Path d={white} fill={t.palette.white} />
+      <Path d={wedge} fill={t.palette.violet} />
+      <Path
+        d={`M0 ${h * 0.94} C${w * 0.2} ${h * 0.92} ${w * 0.46} ${h * 0.955} ${w * 0.62} ${h} H0 Z`}
+        fill={t.palette.violet}
+      />
     </Svg>
   );
 }
