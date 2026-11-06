@@ -46,7 +46,17 @@ export async function openWalletPage(
   const target = await choose();
   if (!target) return false;
   const returnUrl = Linking.createURL('wallet/return');
-  const { url } = await getLink(returnUrl);
+  const { url, code } = await getLink(returnUrl);
+  if (target !== 'browser') {
+    // Wallet apps sometimes open only MUSO's home page; the page then asks for this code.
+    await new Promise<void>((resolve) =>
+      Alert.alert(
+        `Your code: ${code}`,
+        'If the page asks for a code, type this one. It works for 30 minutes.',
+        [{ text: 'Open', onPress: () => resolve() }],
+      ),
+    );
+  }
   await open(target, url, returnUrl);
   return true;
 }

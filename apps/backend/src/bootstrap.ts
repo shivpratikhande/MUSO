@@ -10,7 +10,8 @@ export function configureApp(app: INestApplication): void {
 
   app.use(helmet());
   // /.well-known/x402 must live at the root for agent discovery.
-  app.setGlobalPrefix('v1', { exclude: ['.well-known/x402'] });
+  // `/` and `/w/:code` are short links to the Arc wallet page (wallet apps may drop paths).
+  app.setGlobalPrefix('v1', { exclude: ['.well-known/x402', '/', 'w/:code'] });
   app.enableCors({ origin: config.get('CORS_ORIGINS', { infer: true }), credentials: true });
   app.enableShutdownHooks();
 

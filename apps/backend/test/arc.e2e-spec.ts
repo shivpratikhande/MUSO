@@ -439,7 +439,12 @@ describe('Arc on-chain reward payouts (e2e)', () => {
 
   describe('browser wallet page (signed links)', () => {
     const RETURN = 'muso://wallet/return';
-    const tokenOf = (url: string) => new URL(url).searchParams.get('t')!;
+    /** Links are short `/w/CODE` URLs; the page trades the pairing code for the signed token. */
+    const tokenOf = async (link: { url: string; code: string }) => {
+      expect(new URL(link.url).pathname).toBe(`/w/${link.code.replace('-', '')}`);
+      const r = await http().get(`/v1/arc/code/${link.code.toLowerCase()}`).expect(200);
+      return r.body.data.t as string;
+    };
 
     it('serves the page and links a wallet with only the signed link', async () => {
       const user = await makeUser(app, prisma);
@@ -453,8 +458,13 @@ describe('Arc on-chain reward payouts (e2e)', () => {
         .set(user.auth)
         .send({ returnUrl: RETURN })
         .expect(200);
-      const t = tokenOf(link.body.data.url);
+      const t = await tokenOf(link.body.data);
       const page = await http().get('/v1/arc/connect').query({ t }).expect(200);
+      await http().get('/').expect(200); // wallet apps that drop the path land here (code entry)
+      await http()
+        .get(`/w/${link.body.data.code.replace('-', '')}`)
+        .expect(200);
+      await http().get('/v1/arc/code/ZZZZ-ZZZZ').expect(404);
       expect(page.headers['content-security-policy']).toMatch(/script-src 'nonce-/);
 
       const info = await http().get('/v1/arc/session').query({ t }).expect(200);
@@ -509,7 +519,7 @@ describe('Arc on-chain reward payouts (e2e)', () => {
         .set(org.auth)
         .send({ returnUrl: RETURN })
         .expect(200);
-      const t = tokenOf(link.body.data.url);
+      const t = await tokenOf(link.body.data);
       const info = (await http().get('/v1/arc/session').query({ t }).expect(200)).body.data;
       expect(info.pool).toMatchObject({
         id: pool.id,

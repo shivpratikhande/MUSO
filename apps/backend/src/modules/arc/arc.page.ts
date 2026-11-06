@@ -48,7 +48,7 @@ small{color:#8A867D}
 </main>
 <script nonce="${nonce}">
 const SEL = ${JSON.stringify(SELECTORS)};
-const T = new URLSearchParams(location.search).get('t') || '';
+let T = new URLSearchParams(location.search).get('t') || '';
 const $ = (id) => document.getElementById(id);
 let info, account;
 
@@ -163,8 +163,34 @@ async function runFund() {
   done('Campaign <strong>#' + id + '</strong> holds ' + usdc + ' USDC for this pool (' + txLink(r.transactionHash) + '). Creators are paid automatically when the pool ends.');
 }
 
+/** Pairing code: from /w/CODE, or typed in when the wallet app opened only the site root. */
+function askCode(message) {
+  return new Promise((resolve) => {
+    $('title').textContent = 'Enter your MUSO code';
+    $('intro').textContent = 'Your wallet app opened MUSO without the link. Type the code shown in the MUSO app.';
+    $('form').innerHTML = '<label for="code">Code</label><input id="code" autocapitalize="characters" autocomplete="off" placeholder="ABCD-EFGH">';
+    if (message) { $('err').textContent = message; $('err').style.display = 'block'; }
+    $('go').textContent = 'Continue';
+    $('go').disabled = false;
+    $('go').onclick = () => { $('err').style.display = 'none'; resolve($('code').value); };
+  });
+}
+async function resolveToken() {
+  if (T) return;
+  const m = location.pathname.match(/^\\/w\\/([A-Za-z0-9-]+)/);
+  let code = m ? m[1] : await askCode();
+  for (;;) {
+    const clean = String(code).toUpperCase().replace(/[^A-Z0-9]/g, '');
+    const r = await fetch('/v1/arc/code/' + encodeURIComponent(clean));
+    const j = await r.json().catch(() => ({}));
+    if (r.ok && j.data) { T = j.data.t; $('form').innerHTML = ''; return; }
+    code = await askCode(r.status === 429 ? 'Too many tries. Wait a minute.' : 'That code didn’t work. Check it in the MUSO app (codes expire after 30 minutes).');
+  }
+}
+
 (async () => {
   try {
+    await resolveToken();
     info = await api('GET', 'session');
     $('back').href = info.returnUrl;
     $('foot').innerHTML = 'Contract <a class="mono" target="_blank" rel="noopener" href="' + info.chain.explorerUrl + '/address/' + info.contract + '">' + short(info.contract) + '</a> · built in Arc Studio';

@@ -96,4 +96,6 @@ export type ArcLinkRequest = z.infer<typeof ArcLinkRequestSchema>;
 /** A short-lived signed link to MUSO's wallet page (opened in the browser / a wallet app). */
 export interface ArcLink {
   url: string;
+  /** Pairing code (XXXX-XXXX) to type on the page if the wallet app drops the link's path. */
+  code: string;
 }

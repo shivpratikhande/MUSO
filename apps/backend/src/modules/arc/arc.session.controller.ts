@@ -1,4 +1,15 @@
-import { Body, Controller, Get, HttpCode, HttpStatus, Post, Put, Query, Res } from '@nestjs/common';
+import {
+  Body,
+  Controller,
+  Get,
+  HttpCode,
+  HttpStatus,
+  Param,
+  Post,
+  Put,
+  Query,
+  Res,
+} from '@nestjs/common';
 import { ApiExcludeController } from '@nestjs/swagger';
 import { Throttle } from '@nestjs/throttler';
 import {
@@ -17,6 +28,20 @@ import { Public } from '../auth/decorators/public.decorator.js';
 import { renderConnectPage } from './arc.page.js';
 import { ArcSessionService, type ArcSessionInfo } from './arc.session.js';
 
+function sendConnectPage(res: Response): void {
+  const nonce = randomBytes(16).toString('base64');
+  res
+    .status(200)
+    .setHeader(
+      'Content-Security-Policy',
+      `default-src 'none'; script-src 'nonce-${nonce}'; style-src 'unsafe-inline'; connect-src 'self'; img-src data:; base-uri 'none'; form-action 'none'`,
+    )
+    .setHeader('Cache-Control', 'no-store')
+    .setHeader('Referrer-Policy', 'no-referrer')
+    .type('html')
+    .send(renderConnectPage(nonce));
+}
+
 /** MUSO's browser wallet page and the JSON it uses. Authorized by the signed `t` link token. */
 @ApiExcludeController()
 @Public()
@@ -27,17 +52,14 @@ export class ArcSessionController {
 
   @Get('connect')
   page(@Res() res: Response): void {
-    const nonce = randomBytes(16).toString('base64');
-    res
-      .status(200)
-      .setHeader(
-        'Content-Security-Policy',
-        `default-src 'none'; script-src 'nonce-${nonce}'; style-src 'unsafe-inline'; connect-src 'self'; img-src data:; base-uri 'none'; form-action 'none'`,
-      )
-      .setHeader('Cache-Control', 'no-store')
-      .setHeader('Referrer-Policy', 'no-referrer')
-      .type('html')
-      .send(renderConnectPage(nonce));
+    sendConnectPage(res);
+  }
+
+  /** Pairing code (typed on the page) → signed link token. */
+  @Get('code/:code')
+  @Throttle({ default: { limit: 10, ttl: 60_000 } })
+  code(@Param('code') code: string): Promise<{ t: string }> {
+    return this.sessions.resolveCode(code);
   }
 
   @Get('session')
@@ -69,5 +91,25 @@ export class ArcSessionController {
     @Body(new ZodValidationPipe(LinkArcCampaignSchema)) body: LinkArcCampaignInput,
   ): Promise<{ poolId: string }> {
     return this.sessions.fund(t, body.campaignId);
+  }
+}
+
+/**
+ * Short links outside /v1: `/w/:code` (pairing code in the path) and `/` (type the code).
+ * Wallet apps' browsers sometimes open only the site root, so the page can always recover.
+ */
+@ApiExcludeController()
+@Public()
+@Throttle({ default: { limit: 30, ttl: 60_000 } })
+@Controller()
+export class ArcShortLinkController {
+  @Get()
+  root(@Res() res: Response): void {
+    sendConnectPage(res);
+  }
+
+  @Get('w/:code')
+  short(@Res() res: Response): void {
+    sendConnectPage(res);
   }
 }

@@ -1,17 +1,21 @@
 import { Inject, Injectable, Optional } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import type { ArcLink, LinkWalletInput, WalletChallenge } from '@muso/shared';
-import { createHmac, timingSafeEqual } from 'node:crypto';
+import { createHmac, randomInt, timingSafeEqual } from 'node:crypto';
 import { getAddress } from 'viem';
 import type { Env } from '../../config/env.js';
 import { badRequest, conflict, forbidden, notFound } from '../../common/errors.js';
 import { PrismaService } from '../../database/prisma.service.js';
+import { RedisService } from '../../redis/redis.service.js';
 import type { RequestUser } from '../auth/auth.types.js';
 import { ARC_CHAIN, type ArcChain } from './arc.chain.js';
 import { ArcService } from './arc.service.js';
 
 /** Signed links to the browser wallet page expire after this long. */
 const LINK_TTL_MS = 30 * 60_000;
+/** Unambiguous characters for typed pairing codes (no 0/O, 1/I/L). */
+const CODE_ALPHABET = 'ABCDEFGHJKMNPQRSTUVWXYZ23456789';
+const codeKey = (code: string) => `arc:pair:${code}`;
 
 export type ArcSessionPurpose = 'wallet' | 'fund';
 interface SessionToken {
@@ -45,6 +49,7 @@ export class ArcSessionService {
     private readonly prisma: PrismaService,
     private readonly arc: ArcService,
     private readonly config: ConfigService<Env, true>,
+    private readonly redis: RedisService,
     @Optional() @Inject(ARC_CHAIN) private readonly chain: ArcChain | null,
   ) {}
 
@@ -80,7 +85,23 @@ export class ArcSessionService {
       this.config.get('ARC_PUBLIC_URL', { infer: true }) ??
       this.config.get('PUBLIC_API_URL', { infer: true })
     ).replace(/\/$/, '');
-    return { url: `${base}/v1/arc/connect?t=${payload}.${this.sign(payload)}` };
+    const t = `${payload}.${this.sign(payload)}`;
+    // Wallet apps' browsers sometimes open only the site root, so the link also has a short
+    // pairing code the page can ask for. The code maps to the signed token for the same 30 min.
+    const code = Array.from(
+      { length: 8 },
+      () => CODE_ALPHABET[randomInt(CODE_ALPHABET.length)],
+    ).join('');
+    await this.redis.client.set(codeKey(code), t, 'PX', LINK_TTL_MS);
+    return { url: `${base}/w/${code}`, code: `${code.slice(0, 4)}-${code.slice(4)}` };
+  }
+
+  /** Pairing code → signed link token. */
+  async resolveCode(code: string): Promise<{ t: string }> {
+    const clean = code.toUpperCase().replace(/[^A-Z0-9]/g, '');
+    const t = clean.length === 8 ? await this.redis.client.get(codeKey(clean)) : null;
+    if (!t) throw notFound('That code');
+    return { t };
   }
 
   /** Verifies a link token. Throws a user-facing error when it's invalid or expired. */
