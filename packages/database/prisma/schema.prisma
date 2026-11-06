@@ -82,6 +82,8 @@ model User {
   watchSessions     WatchSession[]
   arcPayouts        ArcPayout[]
   humanVerification HumanVerification?
+  predictionMarkets PredictionMarket[]
+  predictionPicks   PredictionPick[]
 
   @@map("users")
 }
@@ -271,6 +273,7 @@ model Event {
   followers   EventFollow[]
   posts       Post[]
   rewardPools RewardPool[]
+  predictions PredictionMarket[]
 
   @@index([reviewStatus, startsAt])
   @@index([reviewStatus, endsAt])
@@ -1015,4 +1018,114 @@ model QualifiedWatchTime {
   @@id([postId, viewerId])
   @@index([postId])
   @@map("qualified_watch_time")
+}
+
+// ─────────────────────────────── Predictions (H6) ───────────────────────────────
+// A prediction game on any event, played with test USDC on Arc (PredictionPools contract).
+// On-chain: stakes, totals, locking, the result, payouts and refunds.
+// Off-chain: question text and option labels, World ID / account checks (signed pick tickets),
+// and, for DATA markets, working out the result from MUSO's verified watch time.
+
+/// The kind of question; decides the default options and how the result is found.
+enum PredictionTemplate {
+  MATCH_WINNER
+  BATTLE
+  SETLIST
+  BEST_CLIP
+  CUSTOM
+}
+
+/// MANUAL: the organizer declares the result. DATA: MUSO settles it from verified watch time.
+enum PredictionResolution {
+  MANUAL
+  DATA
+}
+
+enum PredictionStatus {
+  /// Saved; the market isn't on-chain yet (the worker retries).
+  PENDING
+  OPEN
+  SETTLED
+  /// Cancelled, nobody picked the winner, or not settled in time: every stake is returned.
+  REFUNDING
+}
+
+enum PredictionPickStatus {
+  /// MUSO signed a pick ticket; waiting for the on-chain pick.
+  TICKETED
+  /// The pick is on-chain.
+  CONFIRMED
+  /// Winnings or refund sent on-chain.
+  PAID
+  /// Picked another option in a settled market.
+  LOST
+}
+
+model PredictionMarket {
+  id            String               @id @default(uuid(7)) @db.Uuid
+  eventId       String               @map("event_id") @db.Uuid
+  /// The organizer who created it.
+  creatorId     String               @map("creator_id") @db.Uuid
+  question      String
+  template      PredictionTemplate
+  resolution    PredictionResolution
+  /// [{ label, creatorId? }] in on-chain option order (index = option number).
+  options       Json
+  locksAt       DateTime             @map("locks_at")
+  /// DATA markets settle automatically at this time (watch time counted until then).
+  settlesAt     DateTime?            @map("settles_at")
+  /// After this, anyone can take their stake back if the market wasn't settled.
+  resolveBy     DateTime             @map("resolve_by")
+  /// USDC base units (6 decimals).
+  minStakeMicro BigInt               @map("min_stake_micro")
+  maxStakeMicro BigInt               @map("max_stake_micro")
+  /// Share of the pool paid to the winning option's creator (BEST_CLIP), in basis points.
+  creatorBps    Int                  @default(0) @map("creator_bps")
+  /// Only World ID–verified humans can pick.
+  humanOnly     Boolean              @default(false) @map("human_only")
+  status        PredictionStatus     @default(PENDING)
+  chainMarketId Int?                 @unique @map("chain_market_id")
+  createTx      String?              @map("create_tx")
+  winningOption Int?                 @map("winning_option")
+  settleTx      String?              @map("settle_tx")
+  settledAt     DateTime?            @map("settled_at")
+  /// Why it's refunding, or the last on-chain error while PENDING.
+  note          String?
+  createdAt     DateTime             @default(now()) @map("created_at")
+  updatedAt     DateTime             @updatedAt @map("updated_at")
+
+  event   Event            @relation(fields: [eventId], references: [id], onDelete: Restrict)
+  creator User             @relation(fields: [creatorId], references: [id], onDelete: Restrict)
+  picks   PredictionPick[]
+
+  @@index([eventId])
+  @@index([status])
+  @@map("prediction_markets")
+}
+
+model PredictionPick {
+  id             String               @id @default(uuid(7)) @db.Uuid
+  marketId       String               @map("market_id") @db.Uuid
+  userId         String               @map("user_id") @db.Uuid
+  /// Lowercase wallet that picks (the user's linked wallet).
+  wallet         String
+  option         Int
+  stakeMicro     BigInt               @map("stake_micro")
+  /// bytes32 bound into the ticket: hash of the World ID nullifier (or of the account id).
+  humanId        String               @map("human_id")
+  ticketDeadline DateTime             @map("ticket_deadline")
+  status         PredictionPickStatus @default(TICKETED)
+  pickTx         String?              @map("pick_tx")
+  payoutMicro    BigInt?              @map("payout_micro")
+  payoutTx       String?              @map("payout_tx")
+  createdAt      DateTime             @default(now()) @map("created_at")
+  updatedAt      DateTime             @updatedAt @map("updated_at")
+
+  market PredictionMarket @relation(fields: [marketId], references: [id], onDelete: Restrict)
+  user   User             @relation(fields: [userId], references: [id], onDelete: Restrict)
+
+  @@unique([marketId, userId])
+  @@unique([marketId, humanId])
+  @@index([status])
+  @@map("prediction_picks")
 }

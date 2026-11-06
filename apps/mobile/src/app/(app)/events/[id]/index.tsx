@@ -26,6 +26,7 @@ import { pickCapture } from '@/features/posts/capture';
 import { useDraft } from '@/features/posts/draft-store';
 import { postKeys } from '@/features/posts/keys';
 import { PostGrid } from '@/features/posts/PostGrid';
+import { PredictionsSection } from '@/features/predictions/PredictionsSection';
 import { api, errorMessage } from '@/services/api';
 import { useTheme } from '@/theme';
 
@@ -301,6 +302,14 @@ export default function EventDetailScreen() {
               />
             ) : null}
           </View>
+        ) : null}
+
+        {e.reviewStatus === 'APPROVED' ? (
+          <PredictionsSection
+            eventId={e.id}
+            canEdit={e.viewer.canEdit}
+            ended={e.status === 'CANCELLED' || e.status === 'COMPLETED'}
+          />
         ) : null}
 
         {boards.data &&

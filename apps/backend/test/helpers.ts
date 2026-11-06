@@ -119,6 +119,10 @@ export async function cleanupTestUsers(prisma: PrismaService): Promise<void> {
     where: { OR: [{ creatorId: { in: ids } }, { pool: { creatorId: { in: ids } } }] },
   });
   await prisma.rewardPool.deleteMany({ where: { creatorId: { in: ids } } });
+  await prisma.predictionPick.deleteMany({
+    where: { OR: [{ userId: { in: ids } }, { market: { creatorId: { in: ids } } }] },
+  });
+  await prisma.predictionMarket.deleteMany({ where: { creatorId: { in: ids } } });
   await prisma.post.deleteMany({ where: { authorId: { in: ids } } });
   await prisma.event.deleteMany({ where: { organizerId: { in: ids } } });
   await prisma.user.deleteMany({ where: { id: { in: ids } } });

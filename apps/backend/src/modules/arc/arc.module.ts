@@ -32,6 +32,6 @@ import { ArcWorker } from './arc.worker.js';
       },
     },
   ],
-  exports: [ArcService],
+  exports: [ArcService, ArcSessionService],
 })
 export class ArcModule {}

@@ -293,7 +293,21 @@ A UI that exists but isn't wired to the backend is `[~]`, never `[x]`.
 - [x] IDKit `@worldcoin/idkit/expo` 4.6.0 bundles for iOS (Hermes); Verify card on Earnings + human-only pools
 - [ ] Developer Portal app + action (app_id, rp_id, signing key) and a Simulator run on the phone
 
-### H6 — Live at ETHGlobal: Carrom Showdown 🎯 (build after H3)
+### H6 — Predictions on any event (generalised from the Carrom Showdown) 🎯
+
+> Any organizer adds prediction games to any event. Templates: **Match winner · Battle of the bands · Setlist · Best clip · Custom**. Carrom is just one Match-winner market.
+> Results: **MANUAL** (organizer declares) or **DATA** (Best clip: MUSO settles from verified watch time; the winning creator gets up to 20%).
+> On-chain (Arc, `PredictionPools`): stakes, totals, lock, result, payouts, refunds. Off-chain (MUSO): question + labels, one-person-one-pick tickets (World ID nullifier or account), watch-time result.
+
+- [x] Generic backend `predictions` module: create (templates, lineup/creator suggestions), list with live odds, pick links, signed EIP-712 pick tickets, confirm from chain, settle, cancel
+- [x] Worker: put markets on-chain (retries), confirm picks the wallet page didn't report, auto-settle Best clip from verified watch time, expire, relay claims/refunds (MUSO pays gas)
+- [x] Wallet page: pick flow (connect → verify → ticket → approve USDC → pick)
+- [x] App: Predictions section on every event, prediction screen (pick + stake, odds, my pick, organizer result/cancel), "Add a prediction" form
+- [x] 5 e2e tests with a contract-faithful fake (ticket signature check, payouts maths, refunds, Best clip auto-settle with creator share, Arc outage retry); real-contract round trip on a local chain
+- [ ] Rebuild PredictionPools in **Arc Studio**, deploy to Arc testnet, set `PREDICTIONS_ENABLED` + `PREDICTIONS_CONTRACT_ADDRESS`
+- [ ] Optional: publish each market's question + result report on Arkiv
+
+#### Carrom Showdown at the venue (uses H6 above)
 
 > A real MUSO event at the venue: attendees film the match, pick a player with **test USDC on Arc**, join that player's fan club, and winners split the pool. World ID = one real human, one pick.
 > **Testnet only, no real money. Called a "prediction game", never betting.** Feeds the Arc and World picks above.

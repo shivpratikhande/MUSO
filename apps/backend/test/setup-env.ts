@@ -23,3 +23,5 @@ process.env['ENS_ENABLED'] = 'true';
 process.env['ENS_PARENT_NAME'] = 'muso.eth';
 process.env['ENS_CHAIN'] = 'sepolia';
 process.env['ENS_SIGNER_PRIVATE_KEY'] = `0x${randomBytes(32).toString('hex')}`;
+// Predictions: the chain is faked; the address is what the wallet page shows.
+process.env['PREDICTIONS_CONTRACT_ADDRESS'] = `0x${'ab'.repeat(20)}`;

@@ -356,6 +356,43 @@ Watch-time rewards attract farming: one person with many accounts watching their
   - `WORLD_ID_ACTION` (create this action in the Portal)
   - `WORLD_ID_ENVIRONMENT`: `staging` for the [Simulator](https://simulator.worldcoin.org) (the app copies the request link for you), `production` for a real World App
 
+## Predictions — a prediction game on any event (Arc)
+
+Organizers add prediction questions to any event, and fans stake **test USDC on Arc**. Winners split the pool. This is a testnet prediction game with no real money.
+
+| Template | Example | Result |
+|---|---|---|
+| Match winner | "Who wins the carrom final?" | Organizer declares |
+| Battle of the bands | "Who wins tonight's battle?" (options from the lineup) | Organizer declares |
+| Setlist | "What's the encore song?" | Organizer declares |
+| **Best clip** | "Whose clip gets the most real watch time tonight?" | **MUSO settles it automatically** from verified watch time; the winning creator gets up to 20% |
+| Custom | anything | Organizer declares |
+
+**On-chain** (`PredictionPools`, built for Arc):
+- each stake, the totals per option, and the lock time
+- the result and the creator share
+- payouts and refunds
+- a guaranteed refund for everyone if the market isn't settled by `resolveBy`
+
+**Off-chain** (MUSO):
+- the question and option labels
+- **one person, one pick**: MUSO signs an EIP-712 *pick ticket* that binds the wallet to a `humanId`. The `humanId` is a hash of the World ID nullifier, or of the account id when there's no World ID. The contract accepts each `humanId` only once per market.
+- for Best clip, counting verified watch time with the same anti-bot rules as reward pools
+
+```
+Organizer: POST /v1/events/:id/predictions ─▶ createMarket (resolver + gatekeeper = MUSO)
+Fan: POST /v1/predictions/:id/pick-link ─▶ wallet page ─▶ pick ticket (signed) ─▶ approve + pick (USDC → contract)
+Result: organizer POST /settle, or the worker settles Best clip from watch time ─▶ settle(option, creator)
+Worker: claim / refund for every pick (MUSO pays gas; funds always go to the picker)
+```
+
+- **Tests:**
+  - `packages/contracts/test/PredictionPools.t.sol`: 25 Foundry tests, including a funds-conservation fuzz test.
+  - `apps/backend/test/predictions.e2e-spec.ts`: 5 e2e tests.
+- **Enable:**
+  1. Deploy `PredictionPools` (USDC on Arc).
+  2. Set `PREDICTIONS_ENABLED=true` and `PREDICTIONS_CONTRACT_ADDRESS`. It uses the Arc RPC and `ARC_ALLOCATOR_PRIVATE_KEY`.
+
 ## ENS — a name for every creator (`alice.muso.eth`)
 
 Every MUSO creator gets a free ENS subname from their username: `shiv.beats` → **`shiv-beats.muso.eth`** (`.` and `_` become `-`; if two usernames map to the same label, the older account keeps it). The name resolves to the creator's **linked payout wallet**, so anyone can tip or pay them by name from any wallet, and it carries their MUSO profile as text records. Issuing names costs no gas: the records live in MUSO's database and are served through a **CCIP-Read gateway** (EIP-3668 + ENSIP-10 wildcard resolution). The only on-chain piece is one resolver contract that checks MUSO's signature.

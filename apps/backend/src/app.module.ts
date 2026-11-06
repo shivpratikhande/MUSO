@@ -21,6 +21,7 @@ import { NotificationsModule } from './modules/notifications/notifications.modul
 import { PaymentsModule } from './modules/payments/payments.module.js';
 import { ContentModule } from './modules/posts/content.module.js';
 import { ReportsModule } from './modules/reports/reports.module.js';
+import { PredictionsModule } from './modules/predictions/predictions.module.js';
 import { RewardsModule } from './modules/rewards/rewards.module.js';
 import { WorldIdModule } from './modules/world-id/world-id.module.js';
 import { X402Module } from './modules/x402/x402.module.js';
@@ -89,6 +90,7 @@ import { StorageModule } from './storage/storage.module.js';
     WorldIdModule,
     ArkivModule,
     EnsModule,
+    PredictionsModule,
     X402Module,
   ],
   providers: [

@@ -14,3 +14,4 @@ export * from './schemas/arc.js';
 export * from './schemas/world-id.js';
 export * from './schemas/arkiv.js';
 export * from './schemas/ens.js';
+export * from './schemas/predictions.js';

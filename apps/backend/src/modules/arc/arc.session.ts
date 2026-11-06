@@ -17,13 +17,23 @@ const LINK_TTL_MS = 30 * 60_000;
 const CODE_ALPHABET = 'ABCDEFGHJKMNPQRSTUVWXYZ23456789';
 const codeKey = (code: string) => `arc:pair:${code}`;
 
-export type ArcSessionPurpose = 'wallet' | 'fund';
+export type ArcSessionPurpose = 'wallet' | 'fund' | 'pick';
 interface SessionToken {
   u: string;
   p: ArcSessionPurpose;
   pool?: string;
+  /** pick: prediction market id, option index, stake (USDC base units). */
+  m?: string;
+  o?: number;
+  s?: string;
   r: string;
   exp: number;
+}
+
+export interface PickLinkParams {
+  market: string;
+  option: number;
+  stakeMicro: bigint;
 }
 
 /** What the browser page needs to talk to the wallet and the chain. */
@@ -36,6 +46,8 @@ export interface ArcSessionInfo {
   allocator: string;
   linkedWallet: string | null;
   pool: { id: string; title: string; endsAt: number; suggestedUsdc: number } | null;
+  /** pick: what the fan is about to stake on. */
+  prediction: { question: string; optionLabel: string; stakeUsdc: number } | null;
 }
 
 /**
@@ -64,8 +76,11 @@ export class ArcSessionService {
     purpose: ArcSessionPurpose,
     returnUrl: string,
     poolId?: string,
+    pick?: PickLinkParams,
   ): Promise<ArcLink> {
-    if (!this.chain) throw badRequest('On-chain rewards (Arc) are not enabled on this server');
+    // Picks use the PredictionPools contract (checked by PredictionsService before linking).
+    if (!this.chain && purpose !== 'pick')
+      throw badRequest('On-chain rewards (Arc) are not enabled on this server');
     if (purpose === 'fund') {
       const pool = await this.prisma.rewardPool.findUnique({ where: { id: poolId } });
       if (!pool) throw notFound('That reward pool');
@@ -80,6 +95,11 @@ export class ArcSessionService {
       exp: Date.now() + LINK_TTL_MS,
     };
     if (poolId) token.pool = poolId;
+    if (pick) {
+      token.m = pick.market;
+      token.o = pick.option;
+      token.s = pick.stakeMicro.toString();
+    }
     const payload = Buffer.from(JSON.stringify(token)).toString('base64url');
     const base = (
       this.config.get('ARC_PUBLIC_URL', { infer: true }) ??
@@ -122,7 +142,7 @@ export class ArcSessionService {
     return token;
   }
 
-  private async user(token: SessionToken): Promise<RequestUser> {
+  async userFor(token: SessionToken): Promise<RequestUser> {
     const u = await this.prisma.user.findFirst({
       where: { id: token.u, deletedAt: null },
       select: { id: true, email: true, emailVerifiedAt: true, roles: { select: { role: true } } },
@@ -138,7 +158,9 @@ export class ArcSessionService {
 
   async info(t: string | undefined): Promise<ArcSessionInfo> {
     const token = this.parse(t);
-    if (!this.chain) throw badRequest('On-chain rewards (Arc) are not enabled on this server');
+    const predictions = this.config.get('PREDICTIONS_CONTRACT_ADDRESS', { infer: true });
+    if (token.p === 'pick' ? !predictions : !this.chain)
+      throw badRequest('On-chain rewards (Arc) are not enabled on this server');
     const u = await this.prisma.user.findUniqueOrThrow({
       where: { id: token.u },
       select: { walletAddress: true },
@@ -163,6 +185,17 @@ export class ArcSessionService {
             : p.budgetMinor / 100,
       };
     }
+    let prediction: ArcSessionInfo['prediction'] = null;
+    if (token.p === 'pick') {
+      const m = await this.prisma.predictionMarket.findUnique({ where: { id: token.m } });
+      if (!m) throw notFound('That prediction');
+      const options = m.options as { label: string }[];
+      prediction = {
+        question: m.question,
+        optionLabel: options[token.o ?? 0]?.label ?? `Option ${(token.o ?? 0) + 1}`,
+        stakeUsdc: Number(BigInt(token.s ?? '0')) / 1e6,
+      };
+    }
     return {
       purpose: token.p,
       returnUrl: token.r,
@@ -170,27 +203,28 @@ export class ArcSessionService {
         id: this.config.get('ARC_CHAIN_ID', { infer: true }),
         name: 'Arc Testnet',
         rpcUrl: this.config.get('ARC_RPC_URL', { infer: true }),
-        explorerUrl: this.chain.explorerUrl,
+        explorerUrl: this.config.get('ARC_EXPLORER_URL', { infer: true }).replace(/\/$/, ''),
       },
-      contract: this.chain.contract,
+      contract: token.p === 'pick' ? getAddress(predictions!) : this.chain!.contract,
       usdc: getAddress(this.config.get('ARC_USDC_ADDRESS', { infer: true })),
-      allocator: this.chain.allocator,
+      allocator: this.chain?.allocator ?? '',
       linkedWallet: u.walletAddress ? getAddress(u.walletAddress) : null,
       pool,
+      prediction,
     };
   }
 
   async challenge(t: string | undefined, address: string): Promise<WalletChallenge> {
-    return this.arc.challenge(await this.user(this.parse(t)), address);
+    return this.arc.challenge(await this.userFor(this.parse(t)), address);
   }
 
   async linkWallet(t: string | undefined, input: LinkWalletInput) {
-    return this.arc.linkWallet(await this.user(this.parse(t)), input);
+    return this.arc.linkWallet(await this.userFor(this.parse(t)), input);
   }
 
   async fund(t: string | undefined, campaignId: number): Promise<{ poolId: string }> {
     const token = this.parse(t, 'fund');
-    await this.arc.linkCampaign(token.pool!, campaignId, await this.user(token));
+    await this.arc.linkCampaign(token.pool!, campaignId, await this.userFor(token));
     return { poolId: token.pool! };
   }
 }

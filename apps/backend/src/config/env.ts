@@ -104,6 +104,18 @@ export const EnvSchema = z.object({
     .string()
     .regex(/^0x[0-9a-fA-F]{64}$/, '0x-prefixed 32-byte hex key')
     .optional(),
+  /**
+   * Predictions: a testnet prediction game on any event (PredictionPools on Arc). Uses the Arc
+   * RPC and ARC_ALLOCATOR_PRIVATE_KEY, which acts as resolver (settles) and gatekeeper (signs pick tickets).
+   */
+  PREDICTIONS_ENABLED: z
+    .enum(['true', 'false'])
+    .default('false')
+    .transform((v) => v === 'true'),
+  PREDICTIONS_CONTRACT_ADDRESS: z
+    .string()
+    .regex(/^0x[0-9a-fA-F]{40}$/, 'EVM address')
+    .optional(),
   /** World ID (IDKit v4): one verified human per account, required to earn from human-only pools. */
   WORLD_ID_ENABLED: z
     .enum(['true', 'false'])
@@ -193,6 +205,14 @@ function checkEnv(env: Env): string[] {
   if (env.ARC_ENABLED && (!env.ARC_REWARD_CAMPAIGNS_ADDRESS || !env.ARC_ALLOCATOR_PRIVATE_KEY)) {
     problems.push(
       '  - ARC_REWARD_CAMPAIGNS_ADDRESS, ARC_ALLOCATOR_PRIVATE_KEY: required when ARC_ENABLED=true',
+    );
+  }
+  if (
+    env.PREDICTIONS_ENABLED &&
+    (!env.PREDICTIONS_CONTRACT_ADDRESS || !env.ARC_ALLOCATOR_PRIVATE_KEY)
+  ) {
+    problems.push(
+      '  - PREDICTIONS_CONTRACT_ADDRESS, ARC_ALLOCATOR_PRIVATE_KEY: required when PREDICTIONS_ENABLED=true',
     );
   }
   if (

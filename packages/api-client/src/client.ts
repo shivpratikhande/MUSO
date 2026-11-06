@@ -58,6 +58,10 @@ import {
   type EnsLookup,
   type EnsStatus,
   type MyEnsName,
+  type CreatePredictionInput,
+  type PickLinkInput,
+  type PredictionDto,
+  type PredictionSuggestions,
 } from '@muso/shared';
 
 /** Error thrown for any non-2xx response or network failure. */
@@ -330,6 +334,21 @@ export function createApiClient(opts: ApiClientOptions) {
       /** Forward the IDKit result unchanged; the server verifies it with World. */
       verify: (result: unknown) =>
         request<HumanStatus>('POST', '/me/human/verify', { body: { result } }),
+    },
+    predictions: {
+      forEvent: (eventId: string) =>
+        request<PredictionDto[]>('GET', `/events/${eventId}/predictions`),
+      suggestions: (eventId: string) =>
+        request<PredictionSuggestions>('GET', `/events/${eventId}/predictions/suggestions`),
+      create: (eventId: string, body: CreatePredictionInput) =>
+        request<PredictionDto>('POST', `/events/${eventId}/predictions`, { body }),
+      get: (id: string) => request<PredictionDto>('GET', `/predictions/${id}`),
+      /** Signed link to MUSO's wallet page, where the fan stakes test USDC on their pick. */
+      pickLink: (id: string, body: PickLinkInput) =>
+        request<ArcLink>('POST', `/predictions/${id}/pick-link`, { body }),
+      settle: (id: string, option: number) =>
+        request<PredictionDto>('POST', `/predictions/${id}/settle`, { body: { option } }),
+      cancel: (id: string) => request<PredictionDto>('POST', `/predictions/${id}/cancel`),
     },
     ens: {
       status: () => request<EnsStatus>('GET', '/ens/status'),
