@@ -353,7 +353,7 @@ A UI that exists but isn't wired to the backend is `[~]`, never `[x]`.
 - [x] **Arkiv** — "Build on Arkiv" track (one of our 3 picks): 5 `muso.*` schemas on Rabdi; worker publishes events (expire event end + 30 d), clips (read-only, handed to creator wallet), read-only attention reports + per-clip shares, payout receipts (link to Arc tx); takedowns delete; idempotent
 - [x] Arkiv user-visible read: pool screen "Public proof on Arkiv" reads the report from Arkiv (test proves DB changes don't affect it); `arkiv:query` script for judges
 - [x] `/arkiv/schema.md`, `why-arkiv.md`, `how-you-use-arkiv.md`, `reach.md`, `friction.md`; README section with writer wallet + query
-- [ ] Arkiv live: fund writer `0x278A…BAfB` with tGLM + access key → first real report on Rabdi (link in README)
+- [x] Arkiv live on Rabdi: 6 events, 8 clips (handed to creators' wallets), 1 read-only report + 3 shares + 2 payout receipts linking to Arc txs; read back with `arkiv:query` (report `0x0b33…67ef`)
 - [ ] **Swarm bonus** (+$0.5k): free event videos on Swarm, reference stored in the Arkiv post, app plays from Swarm; `/arkiv/swarm.md`
 
 ### H5 — Submission & quality (part of Milestone 7)

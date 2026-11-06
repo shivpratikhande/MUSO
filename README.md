@@ -321,6 +321,7 @@ Sponsors fund MUSO reward pools to pay for **real human attention**, so they nee
     .createdBy("0x278A05621217b3B8680c56e19B5B9cf48Bd6BAfB")
     .fetch()
   ```
+- **Live on Rabdi:** the Arc demo pool's report, [`0x0b33…67ef`](https://rabdi.explorer.arkiv.network/entity/0x0b3370482f5bd905174b9f69490ad0f9ddf0bd521b0b97c8bf2a1e8fd51567ef). It holds 2 viewers, 36 s watched and 3 clips paid (2 USD, Arc campaign #2), with per-clip shares and both payout receipts linking to the Arc USDC transactions. The first sync also published 6 events and 8 clips; all 8 clips were handed to their creators' wallets. Read it yourself: `pnpm --filter @muso/backend arkiv:query 01a1b037-5e8c-7069-a860-924419b8670d`.
 - **Judging files:** [`arkiv/why-arkiv.md`](arkiv/why-arkiv.md) · [`arkiv/how-you-use-arkiv.md`](arkiv/how-you-use-arkiv.md) · [`arkiv/reach.md`](arkiv/reach.md) · [`arkiv/friction.md`](arkiv/friction.md)
 - **Code:** `apps/backend/src/modules/arkiv` (schemas, SDK gateway, sync worker, proof endpoint) and `apps/mobile/src/features/arkiv/ArkivProofCard.tsx`. Tests: `apps/backend/test/arkiv.e2e-spec.ts` (in-memory Arkiv). It covers lifetimes, read-only flags, the handover to the creator, takedowns, no double writes, and that the proof card comes from Arkiv rather than the database.
 - **Configure:** `ARKIV_ENABLED=true`, `ARKIV_WRITER_PRIVATE_KEY` (fund it with tGLM at [hub.arkiv.network/faucet](https://hub.arkiv.network/faucet)), `ARKIV_ACCESS_KEY` (from [hub.arkiv.network/access-keys](https://hub.arkiv.network/access-keys)).

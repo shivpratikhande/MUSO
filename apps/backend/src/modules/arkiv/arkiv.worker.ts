@@ -21,6 +21,7 @@ export class ArkivWorker implements OnModuleInit, OnModuleDestroy {
       this.config.get('NODE_ENV', { infer: true }) === 'test'
     )
       return;
+    this.logger.log('Arkiv publishing is on (sync every 30 s)');
     this.timer = setInterval(() => {
       this.arkiv
         .sync()
