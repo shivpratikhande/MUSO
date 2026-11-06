@@ -86,8 +86,10 @@ function done(html) {
 }
 
 async function connect() {
-  const accounts = await eth().request({ method: 'eth_requestAccounts' });
-  account = accounts[0];
+  const pick = (a) => (Array.isArray(a) && a.length ? (typeof a[0] === 'string' ? a[0] : a[0] && a[0].address) : null);
+  account = pick(await eth().request({ method: 'eth_requestAccounts' }));
+  if (!account) account = pick(await eth().request({ method: 'eth_accounts' })) || eth().selectedAddress || null;
+  if (!account) throw new Error('Your wallet did not share an account. Unlock it, pick an account, and try again.');
   const want = hex(info.chain.id);
   const cur = await eth().request({ method: 'eth_chainId' });
   if (String(cur).toLowerCase() !== want) {
@@ -106,7 +108,16 @@ async function connect() {
 async function linkWallet() {
   if (info.linkedWallet && info.linkedWallet.toLowerCase() === account.toLowerCase()) return;
   const ch = await api('POST', 'session/challenge', { address: account });
-  const signature = await eth().request({ method: 'personal_sign', params: ['0x' + utf8(ch.message), account] });
+  // Wallet apps differ in what they accept: try the standard order with the checksummed and the
+  // lowercase address, then the legacy order. A user rejection stops immediately.
+  const msg = '0x' + utf8(ch.message);
+  const attempts = [[msg, ch.address], [msg, ch.address.toLowerCase()], [ch.address, msg], [ch.message, ch.address]];
+  let signature = null, lastErr = null;
+  for (const params of attempts) {
+    try { signature = await eth().request({ method: 'personal_sign', params }); if (signature) break; }
+    catch (e) { lastErr = e; if (e.code === 4001 || /reject|denied|cancel/i.test(e.message || '')) throw e; }
+  }
+  if (!signature) throw new Error('Your wallet could not sign: ' + ((lastErr && (lastErr.message || lastErr.code)) || 'unknown error') + '\\nAccount: ' + ch.address);
   const w = await api('PUT', 'session/wallet', { address: ch.address, issuedAt: ch.issuedAt, signature });
   info.linkedWallet = w.address;
 }
