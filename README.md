@@ -433,7 +433,8 @@ Every MUSO creator gets a free ENS subname from their username: `shiv.beats` →
 
 - Parent name: **`musoapp.eth`** (ENSv2 on Sepolia), so creators are `<username>.musoapp.eth`.
 - Resolver: [`0x83ef18ee33affe731386826d4282c3e9d836169d`](https://sepolia.etherscan.io/address/0x83ef18ee33affe731386826d4282c3e9d836169d) ([deploy tx](https://sepolia.etherscan.io/tx/0x1f4cf291d4da2f362afd25a4bf663c26a7c667ca8b137aab4c41d56d974fd226)).
-- Check a name the way wallets do: `node scripts/ens-sepolia.mjs check shivv.musoapp.eth` → the creator's linked wallet and bio.
+- Gateway: the Railway API, `https://muso-api-production.up.railway.app/v1/ens/gateway/{sender}/{data}.json`.
+- Check a name the way wallets do: `node scripts/ens-sepolia.mjs check blockparty-mum.musoapp.eth` → the creator's linked wallet and bio.
 
 ### Set it up (Sepolia)
 

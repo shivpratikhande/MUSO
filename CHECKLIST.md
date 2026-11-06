@@ -368,9 +368,9 @@ A UI that exists but isn't wired to the backend is `[~]`, never `[x]`.
 - [x] `MusoOffchainResolver` contract + 8 Foundry tests + deploy script; gateway signatures checked against the real contract on a local chain
 - [x] API: status, me/ens, resolve, reverse; 7 e2e tests
 - [x] App: ENS name on the wallet card, creators' names in on-chain payouts, sponsor's primary name on pools
-- [x] Live on Sepolia: parent `musoapp.eth` (4-letter `muso.eth` too costly even in test ETH), resolver `0x83ef18ee33affe731386826d4282c3e9d836169d`, `shivv.musoapp.eth` and `blockparty-mum.musoapp.eth` resolve through the Universal Resolver to their linked wallets (`node scripts/ens-sepolia.mjs check <name>`)
+- [x] Live on Sepolia: parent `musoapp.eth` (4-letter `muso.eth` too costly even in test ETH), resolver `0x83ef18ee33affe731386826d4282c3e9d836169d`, `blockparty-mum.musoapp.eth` resolves through the Universal Resolver to their linked wallets (`node scripts/ens-sepolia.mjs check <name>`)
 - [ ] Demo: pay a creator by `name.musoapp.eth` from MetaMask
-- [ ] Stable https API (Railway) for the gateway; until then `node scripts/ens-sepolia.mjs set-url` after a tunnel change
+- [x] Gateway on the Railway API (`https://muso-api-production.up.railway.app`), so names resolve without the laptop
 
 ### H4 — Extra tracks (only if prize limit allows)
 - [ ] **Chainlink CRE** ($1.5k): workflow fetches pool allocations from our API, validates budget/caps/eligibility, calls `setAllocations` on-chain; successful CLI simulation
