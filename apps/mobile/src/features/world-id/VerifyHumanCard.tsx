@@ -76,7 +76,8 @@ export function VerifyHumanCard({ reason }: { reason?: string }) {
       )}
       {!q.data.verified && ctx?.environment === 'staging' ? (
         <AppText variant="caption" tone="muted" style={{ marginTop: t.space.xs }}>
-          Test mode: open the World ID Simulator ({SIMULATOR}) and paste the copied link.
+          Test mode (staging): approve in the “[SANDBOX] World ID” app from World’s TestFlight, or
+          paste the link in the web Simulator ({SIMULATOR}).
         </AppText>
       ) : null}
     </Card>
@@ -109,7 +110,7 @@ function HumanFlow({
     onError: (e) => onError(errorMessage(e)),
   });
 
-  // Start once; open World App as soon as the request link exists (production).
+  // Start once; open World App (the [SANDBOX] app in staging) as soon as the request link exists.
   const { open } = flow;
   useEffect(() => {
     open();
@@ -118,14 +119,12 @@ function HumanFlow({
   useEffect(() => {
     if (!flow.connectorURI || opened.current) return;
     opened.current = true;
-    if (ctx.environment === 'staging') {
+    // Copy the link too, for the web Simulator fallback in staging.
+    if (ctx.environment === 'staging')
       void Clipboard.setStringAsync(flow.connectorURI).then(() => setCopied(true));
-      void Linking.openURL(SIMULATOR);
-    } else {
-      Linking.openURL(flow.connectorURI).catch(() =>
-        onError('Could not open World App. Is it installed?'),
-      );
-    }
+    Linking.openURL(flow.connectorURI).catch(() =>
+      onError('Could not open World App. Is it installed?'),
+    );
   }, [flow.connectorURI, ctx.environment, onError]);
   // Forward the proof exactly as IDKit returned it; the server verifies it with World.
   const sent = useRef(false);
@@ -150,22 +149,29 @@ function HumanFlow({
           ? 'Checking your proof with World…'
           : flow.isAwaitingUserConfirmation
             ? 'Approve the request in World App…'
-            : copied
-              ? 'Link copied. Paste it in the World ID Simulator, then come back.'
-              : 'Opening World App…'}
+            : 'Approve in World App, then come back here.'}
       </AppText>
       {flow.connectorURI && !flow.result ? (
         <View style={{ flexDirection: 'row', gap: 8 }}>
           <Button
             size="sm"
             variant="secondary"
-            label={ctx.environment === 'staging' ? 'Copy link again' : 'Open World App'}
-            onPress={() =>
-              ctx.environment === 'staging'
-                ? void Clipboard.setStringAsync(flow.connectorURI!).then(() => setCopied(true))
-                : void Linking.openURL(flow.connectorURI!)
-            }
+            label={ctx.environment === 'staging' ? 'Open Sandbox app' : 'Open World App'}
+            onPress={() => void Linking.openURL(flow.connectorURI!)}
           />
+          {ctx.environment === 'staging' ? (
+            <Button
+              size="sm"
+              variant="ghost"
+              label={copied ? 'Use web Simulator' : 'Copy link'}
+              onPress={() =>
+                void Clipboard.setStringAsync(flow.connectorURI!).then(() => {
+                  setCopied(true);
+                  void Linking.openURL(SIMULATOR);
+                })
+              }
+            />
+          ) : null}
         </View>
       ) : null}
     </View>
