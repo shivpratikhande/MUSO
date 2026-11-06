@@ -1,4 +1,5 @@
 import type { ArcLink } from '@muso/shared';
+import * as Clipboard from 'expo-clipboard';
 import * as Linking from 'expo-linking';
 import * as WebBrowser from 'expo-web-browser';
 import { ActionSheetIOS, Alert, Platform, Share } from 'react-native';
@@ -52,8 +53,15 @@ export async function openWalletPage(
     await new Promise<void>((resolve) =>
       Alert.alert(
         `Your code: ${code}`,
-        'If the page asks for a code, type this one. It works for 30 minutes.',
-        [{ text: 'Open', onPress: () => resolve() }],
+        'We’ll copy it for you. If the page asks for a code, tap Paste (or long-press the box and paste). It works for 30 minutes.',
+        [
+          {
+            text: 'Copy code & open',
+            onPress: () => {
+              void Clipboard.setStringAsync(code).finally(resolve);
+            },
+          },
+        ],
       ),
     );
   }

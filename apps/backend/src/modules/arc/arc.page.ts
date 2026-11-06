@@ -85,8 +85,8 @@ function done(html) {
   $('back').style.display = 'block';
 }
 
+const pick = (a) => (Array.isArray(a) && a.length ? (typeof a[0] === 'string' ? a[0] : a[0] && a[0].address) : null);
 async function connect() {
-  const pick = (a) => (Array.isArray(a) && a.length ? (typeof a[0] === 'string' ? a[0] : a[0] && a[0].address) : null);
   account = pick(await eth().request({ method: 'eth_requestAccounts' }));
   if (!account) account = pick(await eth().request({ method: 'eth_accounts' })) || eth().selectedAddress || null;
   if (!account) throw new Error('Your wallet did not share an account. Unlock it, pick an account, and try again.');
@@ -104,8 +104,15 @@ async function connect() {
       }] });
     }
   }
+  // MetaMask mobile permits accounts per network: ask again now that Arc is selected.
+  const onArc = pick(await eth().request({ method: 'eth_requestAccounts' }));
+  if (onArc) account = onArc;
 }
 async function linkWallet() {
+  if (info.linkedWallet && info.linkedWallet.toLowerCase() === account.toLowerCase()) return;
+  // Sign with exactly the account the wallet exposes to this page right now.
+  const current = pick(await eth().request({ method: 'eth_accounts' })) || pick(await eth().request({ method: 'eth_requestAccounts' }));
+  if (current) account = current;
   if (info.linkedWallet && info.linkedWallet.toLowerCase() === account.toLowerCase()) return;
   const ch = await api('POST', 'session/challenge', { address: account });
   // Wallet apps differ in what they accept: try the standard order with the checksummed and the
@@ -117,7 +124,7 @@ async function linkWallet() {
     try { signature = await eth().request({ method: 'personal_sign', params }); if (signature) break; }
     catch (e) { lastErr = e; if (e.code === 4001 || /reject|denied|cancel/i.test(e.message || '')) throw e; }
   }
-  if (!signature) throw new Error('Your wallet could not sign: ' + ((lastErr && (lastErr.message || lastErr.code)) || 'unknown error') + '\\nAccount: ' + ch.address);
+  if (!signature) throw new Error('Your wallet could not sign: ' + ((lastErr && (lastErr.message || lastErr.code)) || 'unknown error') + '\\nAccount: ' + ch.address + '\\nWallet exposes: ' + JSON.stringify(await eth().request({ method: 'eth_accounts' }).catch(() => 'n/a')) + ' on chain ' + (await eth().request({ method: 'eth_chainId' }).catch(() => '?')));
   const w = await api('PUT', 'session/wallet', { address: ch.address, issuedAt: ch.issuedAt, signature });
   info.linkedWallet = w.address;
 }
@@ -179,7 +186,11 @@ function askCode(message) {
   return new Promise((resolve) => {
     $('title').textContent = 'Enter your MUSO code';
     $('intro').textContent = 'Your wallet app opened MUSO without the link. Type the code shown in the MUSO app.';
-    $('form').innerHTML = '<label for="code">Code</label><input id="code" autocapitalize="characters" autocomplete="off" placeholder="ABCD-EFGH">';
+    $('form').innerHTML = '<label for="code">Code</label><input id="code" autocapitalize="characters" autocomplete="off" placeholder="ABCD-EFGH"><button id="paste" type="button" style="background:transparent;color:#171715;border:1.5px solid #D8D1C2;margin-top:10px;padding:12px">Paste code</button>';
+    $('paste').onclick = async () => {
+      try { $('code').value = (await navigator.clipboard.readText()).trim(); }
+      catch { $('code').focus(); $('err').textContent = 'Long-press the box and tap Paste.'; $('err').style.display = 'block'; }
+    };
     if (message) { $('err').textContent = message; $('err').style.display = 'block'; }
     $('go').textContent = 'Continue';
     $('go').disabled = false;
