@@ -429,7 +429,16 @@ Every MUSO creator gets a free ENS subname from their username: `shiv.beats` →
   - `packages/contracts/test/MusoOffchainResolver.t.sol`: 8 Foundry tests.
   - `apps/backend/test/ens.e2e-spec.ts`: 7 tests, covering records, signatures, label collisions, privacy and malformed requests.
 
+### Live on Sepolia
+
+- Parent name: **`musoapp.eth`** (ENSv2 on Sepolia), so creators are `<username>.musoapp.eth`.
+- Resolver: [`0x83ef18ee33affe731386826d4282c3e9d836169d`](https://sepolia.etherscan.io/address/0x83ef18ee33affe731386826d4282c3e9d836169d) ([deploy tx](https://sepolia.etherscan.io/tx/0x1f4cf291d4da2f362afd25a4bf663c26a7c667ca8b137aab4c41d56d974fd226)).
+- Check a name the way wallets do: `node scripts/ens-sepolia.mjs check shivv.musoapp.eth` → the creator's linked wallet and bio.
+
 ### Set it up (Sepolia)
+
+`scripts/ens-sepolia.mjs` does steps 3–4 for you: `wallet` (makes a deployer wallet), `deploy` (uses `ARC_PUBLIC_URL` as the https gateway base), `set-url` (after the API address changes) and `check`.
+
 
 1. Register a name (e.g. `muso.eth`) on [sepolia.app.ens.domains](https://sepolia.app.ens.domains) with Sepolia ETH.
 2. Set `ENS_ENABLED=true`, `ENS_PARENT_NAME` and `ENS_SIGNER_PRIVATE_KEY` in `.env`. Make the API reachable over https (`PUBLIC_API_URL`, e.g. a tunnel), then read the `signer` and `gatewayUrl` from `GET /v1/ens/status`.
