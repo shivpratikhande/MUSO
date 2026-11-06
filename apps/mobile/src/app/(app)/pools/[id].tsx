@@ -78,6 +78,15 @@ export default function PoolScreen() {
     onSuccess: () => void qc.invalidateQueries({ queryKey: ['pools'] }),
     onError: (e) => setFundError(errorMessage(e)),
   });
+  // Sponsor's ENS name (e.g. `brand.eth`), if they have one. Off or unknown → show the address.
+  const sponsor = q.data?.arc?.sponsor;
+  const sponsorName = useQuery({
+    queryKey: ['ens', 'reverse', sponsor],
+    queryFn: () => api.ens.reverse(sponsor!),
+    enabled: !!sponsor,
+    staleTime: 10 * 60_000,
+    retry: false,
+  });
   const cancel = useMutation({
     mutationFn: () => api.rewards.cancel(id),
     onSuccess: (p) => qc.setQueryData(['pools', id], p),
@@ -145,7 +154,7 @@ export default function PoolScreen() {
             pays the network fees.
           </AppText>
           <AppText variant="caption" tone="muted">
-            Sponsor wallet {short(p.arc.sponsor)}
+            Sponsor {sponsorName.data?.name ?? `wallet ${short(p.arc.sponsor)}`}
           </AppText>
           <Button
             size="sm"
@@ -180,6 +189,7 @@ export default function PoolScreen() {
                   </AppText>
                   <AppText variant="caption" tone="muted">
                     {PAYOUT[o.status]}
+                    {o.ensName ? ` · ${o.ensName}` : ''}
                     {o.note ? ` · ${o.note}` : ''}
                     {tx ? ' · view transaction ↗' : ''}
                   </AppText>

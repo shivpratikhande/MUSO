@@ -18,6 +18,7 @@ import { PrismaService } from '../../database/prisma.service.js';
 import { StorageService } from '../../storage/storage.service.js';
 import type { RequestUser } from '../auth/auth.types.js';
 import { NotificationsService } from '../notifications/notifications.service.js';
+import { EnsService } from '../ens/ens.service.js';
 import { LedgerService, accounts } from '../payments/ledger.service.js';
 import { RewardStandings, type Standing } from './reward-standings.service.js';
 
@@ -45,6 +46,7 @@ export class RewardsService {
     private readonly standings: RewardStandings,
     private readonly notifications: NotificationsService,
     private readonly config: ConfigService<Env, true>,
+    private readonly ens: EnsService,
   ) {}
 
   /** Event organizers (or admins) create pools for their approved events. Funding is a separate step. */
@@ -172,10 +174,12 @@ export class RewardsService {
         where: { poolId: id },
         orderBy: { amountMicro: 'desc' },
       });
+      const names = await this.ens.namesFor(rows.map((r) => r.creatorId));
       arcPayouts = rows.map((r) => ({
         creatorId: r.creatorId,
         amountMicro: r.amountMicro.toString(),
         wallet: r.wallet,
+        ensName: names.get(r.creatorId) ?? null,
         status: r.status,
         awardTxUrl: tx(r.awardTx),
         claimTxUrl: tx(r.claimTx),

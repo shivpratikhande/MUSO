@@ -81,6 +81,8 @@ export interface WalletChallenge {
 export interface MyWallet {
   address: string | null;
   linkedAt: string | null;
+  /** The creator's MUSO ENS subname (e.g. `shiv-beats.muso.eth`) when ENS is on. */
+  ensName: string | null;
 }
 
 /** On-chain funding of a pool (shown to everyone; the chain is the source of truth). */
@@ -100,6 +102,8 @@ export interface ArcPayoutDto {
   /** USDC base units (6 decimals), as a string. */
   amountMicro: string;
   wallet: string | null;
+  /** Creator's MUSO ENS subname, shown instead of the raw address when present. */
+  ensName: string | null;
   status: ArcPayoutStatusDto;
   awardTxUrl: string | null;
   claimTxUrl: string | null;

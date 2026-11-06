@@ -1,4 +1,5 @@
 import { Module } from '@nestjs/common';
+import { EnsModule } from '../ens/ens.module.js';
 import { PaymentsModule } from '../payments/payments.module.js';
 import { ContentModule } from '../posts/content.module.js';
 import { RewardsController } from './rewards.controller.js';
@@ -7,7 +8,7 @@ import { RewardsWorker } from './rewards.worker.js';
 import { WatchService } from './watch.service.js';
 
 @Module({
-  imports: [PaymentsModule, ContentModule],
+  imports: [PaymentsModule, ContentModule, EnsModule],
   controllers: [RewardsController],
   providers: [RewardsService, WatchService, RewardsWorker],
   exports: [RewardsService],

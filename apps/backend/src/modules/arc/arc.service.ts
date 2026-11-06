@@ -20,6 +20,7 @@ import {
 } from '../../common/errors.js';
 import { PrismaService } from '../../database/prisma.service.js';
 import type { RequestUser } from '../auth/auth.types.js';
+import { EnsService } from '../ens/ens.service.js';
 import { RewardsService } from '../rewards/rewards.service.js';
 import { ARC_CHAIN, type ArcChain } from './arc.chain.js';
 
@@ -39,6 +40,7 @@ export class ArcService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly rewards: RewardsService,
+    private readonly ens: EnsService,
     private readonly config: ConfigService<Env, true>,
     @Optional() @Inject(ARC_CHAIN) private readonly chain: ArcChain | null,
   ) {}
@@ -62,6 +64,7 @@ export class ArcService {
     return {
       address: u.walletAddress ? getAddress(u.walletAddress) : null,
       linkedAt: u.walletLinkedAt?.toISOString() ?? null,
+      ensName: await this.ens.nameFor(user.id),
     };
   }
 

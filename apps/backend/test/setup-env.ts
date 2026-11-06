@@ -18,3 +18,8 @@ process.env['WORLD_ID_RP_ID'] = 'rp_muso_test';
 process.env['WORLD_ID_SIGNING_KEY'] = randomBytes(32).toString('hex');
 process.env['WORLD_ID_ENVIRONMENT'] = 'staging';
 process.env['WORLD_ID_ACTION'] = 'muso-creator-rewards';
+// ENS gateway on, with a throwaway signing key.
+process.env['ENS_ENABLED'] = 'true';
+process.env['ENS_PARENT_NAME'] = 'muso.eth';
+process.env['ENS_CHAIN'] = 'sepolia';
+process.env['ENS_SIGNER_PRIVATE_KEY'] = `0x${randomBytes(32).toString('hex')}`;

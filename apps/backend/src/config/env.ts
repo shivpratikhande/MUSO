@@ -143,6 +143,34 @@ export const EnvSchema = z.object({
   /** Free key from hub.arkiv.network/access-keys (the public RPC is heavily rate limited). */
   ARKIV_ACCESS_KEY: z.string().default(''),
   ARKIV_EXPLORER_URL: z.url().default('https://rabdi.explorer.arkiv.network'),
+  /** ENS: free `<username>.<parent>` subnames for creators, served by MUSO's CCIP-Read gateway. */
+  ENS_ENABLED: z
+    .enum(['true', 'false'])
+    .default('false')
+    .transform((v) => v === 'true'),
+  /** Parent name MUSO owns on ENS and points at the OffchainResolver. */
+  ENS_PARENT_NAME: z
+    .string()
+    .trim()
+    .toLowerCase()
+    .regex(/^([a-z0-9-]+\.)+[a-z]+$/, 'a name like muso.eth')
+    .default('muso.eth'),
+  /** Ethereum network where the parent name lives (Sepolia for testing). */
+  ENS_CHAIN: z.enum(['mainnet', 'sepolia']).default('sepolia'),
+  /** Ethereum RPC used to read other people's ENS names (not needed for MUSO subnames). */
+  ENS_RPC_URL: z.url().default('https://ethereum-sepolia-rpc.publicnode.com'),
+  /** Gateway signing key (secret, server only). The resolver contract trusts its address. */
+  ENS_SIGNER_PRIVATE_KEY: z
+    .string()
+    .regex(/^0x[0-9a-fA-F]{64}$/, '0x-prefixed 32-byte hex key')
+    .optional(),
+  /** Deployed OffchainResolver (informational: shown in /v1/ens/status). */
+  ENS_RESOLVER_ADDRESS: z
+    .string()
+    .regex(/^0x[0-9a-fA-F]{40}$/, 'EVM address')
+    .optional(),
+  /** How long a signed gateway answer stays valid on-chain. */
+  ENS_RESPONSE_TTL_SECONDS: z.coerce.number().int().min(30).max(86_400).default(300),
   /** Run payment reconciliation + earnings release timers in this process. */
   PAYMENTS_WORKER_ENABLED: z
     .enum(['true', 'false'])
@@ -177,6 +205,9 @@ function checkEnv(env: Env): string[] {
   }
   if (env.ARKIV_ENABLED && !env.ARKIV_WRITER_PRIVATE_KEY) {
     problems.push('  - ARKIV_WRITER_PRIVATE_KEY: required when ARKIV_ENABLED=true');
+  }
+  if (env.ENS_ENABLED && !env.ENS_SIGNER_PRIVATE_KEY) {
+    problems.push('  - ENS_SIGNER_PRIVATE_KEY: required when ENS_ENABLED=true');
   }
   if (env.NODE_ENV === 'production' && env.PAYMENTS_PROVIDER === 'sandbox') {
     problems.push('  - PAYMENTS_PROVIDER: the sandbox provider cannot be used in production');

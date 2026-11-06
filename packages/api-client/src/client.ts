@@ -55,6 +55,9 @@ import {
   type HumanStatus,
   type WorldIdContext,
   type MyWallet,
+  type EnsLookup,
+  type EnsStatus,
+  type MyEnsName,
 } from '@muso/shared';
 
 /** Error thrown for any non-2xx response or network failure. */
@@ -327,6 +330,15 @@ export function createApiClient(opts: ApiClientOptions) {
       /** Forward the IDKit result unchanged; the server verifies it with World. */
       verify: (result: unknown) =>
         request<HumanStatus>('POST', '/me/human/verify', { body: { result } }),
+    },
+    ens: {
+      status: () => request<EnsStatus>('GET', '/ens/status'),
+      /** The signed-in creator's MUSO subname (e.g. `shiv-beats.muso.eth`) and its records. */
+      me: () => request<MyEnsName>('GET', '/me/ens'),
+      /** Name → address (MUSO subnames and any ENS name). */
+      resolve: (name: string) => request<EnsLookup>('GET', '/ens/resolve', { query: { name } }),
+      /** Address → name (MUSO subname first, then the address's ENS primary name). */
+      reverse: (address: string) => request<EnsLookup>('GET', `/ens/reverse/${address}`),
     },
     arc: {
       wallet: () => request<MyWallet>('GET', '/me/wallet'),

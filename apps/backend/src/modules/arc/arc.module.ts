@@ -1,6 +1,7 @@
 import { Module } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import type { Env } from '../../config/env.js';
+import { EnsModule } from '../ens/ens.module.js';
 import { RewardsModule } from '../rewards/rewards.module.js';
 import { ARC_CHAIN, ViemArcChain } from './arc.chain.js';
 import { ArcController } from './arc.controller.js';
@@ -10,7 +11,7 @@ import { ArcSessionService } from './arc.session.js';
 import { ArcWorker } from './arc.worker.js';
 
 @Module({
-  imports: [RewardsModule],
+  imports: [RewardsModule, EnsModule],
   controllers: [ArcController, ArcSessionController, ArcShortLinkController],
   providers: [
     ArcService,

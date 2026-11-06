@@ -356,6 +356,54 @@ Watch-time rewards attract farming: one person with many accounts watching their
   - `WORLD_ID_ACTION` (create this action in the Portal)
   - `WORLD_ID_ENVIRONMENT`: `staging` for the [Simulator](https://simulator.worldcoin.org) (the app copies the request link for you), `production` for a real World App
 
+## ENS — a name for every creator (`alice.muso.eth`)
+
+Every MUSO creator gets a free ENS subname from their username: `shiv.beats` → **`shiv-beats.muso.eth`** (`.` and `_` become `-`; if two usernames map to the same label, the older account keeps it). The name resolves to the creator's **linked payout wallet**, so anyone can tip or pay them by name from any wallet, and it carries their MUSO profile as text records. Issuing names costs no gas: the records live in MUSO's database and are served through a **CCIP-Read gateway** (EIP-3668 + ENSIP-10 wildcard resolution). The only on-chain piece is one resolver contract that checks MUSO's signature.
+
+```
+ Wallet / ENS app / viem            Ethereum (Sepolia)                          MUSO API (apps/backend/src/modules/ens)
+ resolve("shiv-beats.muso.eth") ─▶ MusoOffchainResolver.resolve(name, data)
+                                   revert OffchainLookup(url, callData)
+ GET /v1/ens/gateway/{sender}/{data}.json ───────────────────────────────────▶ decode name + call (addr / text / …)
+                                                                              user by label → wallet + profile
+                                   ◀── { data: abi.encode(result, expires, sig) }   signed by ENS_SIGNER_PRIVATE_KEY
+ resolveWithProof(response, callData) ─▶ checks signer + expiry ─▶ result
+```
+
+- **Records served:**
+  - `addr`: the linked wallet, for ETH (60) and every EVM chain (ENSIP-11/19), including Arc.
+  - Text records: `name`, `description` (bio), `avatar`, `location` (only if location is shown), `url`, and `com.twitter` / `com.instagram` / `com.github` / `org.telegram` / `com.youtube` taken from profile links. `xyz.muso.username` holds the MUSO username.
+- **In the app:**
+  - The wallet card shows your ENS name.
+  - A pool's on-chain payouts list shows creators' ENS names.
+  - A sponsor wallet shows its ENS primary name (e.g. `brand.eth`) when it has one.
+- **API:**
+  - `GET /v1/ens/status` (signer and gateway URL)
+  - `GET /v1/me/ens`
+  - `GET /v1/ens/resolve?name=` (MUSO names are answered locally; other names are read from Ethereum)
+  - `GET /v1/ens/reverse/:address`
+  - The gateway, in GET and POST form
+- **Security:**
+  - The resolver only accepts answers signed by a trusted signer before `expires` (default 5 min).
+  - The signature covers the resolver address, the exact request and the result, so an answer can't be swapped or replayed for another name.
+  - Answers for unknown names, deeper names and a mismatched `node` are empty.
+  - Deleted accounts lose their name.
+- **Tests:**
+  - `packages/contracts/test/MusoOffchainResolver.t.sol`: 8 Foundry tests.
+  - `apps/backend/test/ens.e2e-spec.ts`: 7 tests, covering records, signatures, label collisions, privacy and malformed requests.
+
+### Set it up (Sepolia)
+
+1. Register a name (e.g. `muso.eth`) on [sepolia.app.ens.domains](https://sepolia.app.ens.domains) with Sepolia ETH.
+2. Set `ENS_ENABLED=true`, `ENS_PARENT_NAME` and `ENS_SIGNER_PRIVATE_KEY` in `.env`. Make the API reachable over https (`PUBLIC_API_URL`, e.g. a tunnel), then read the `signer` and `gatewayUrl` from `GET /v1/ens/status`.
+3. Deploy the resolver:
+   ```sh
+   cd packages/contracts
+   ENS_GATEWAY_URL='<gatewayUrl>' ENS_SIGNER_ADDRESS=<signer> \
+     arc-forge script script/DeployMusoOffchainResolver.s.sol --rpc-url <sepolia rpc> --private-key <key> --broadcast
+   ```
+4. In the ENS app, set the parent name's **resolver** to the deployed address. `<username>.muso.eth` now resolves in any ENS-aware wallet and in the ENS app.
+
 ## How we used AI
 
 ETHGlobal asks teams to disclose AI usage. This project was built with an AI coding assistant (Claude, via Claude Code) working under the team's direction:

@@ -348,6 +348,15 @@ A UI that exists but isn't wired to the backend is `[~]`, never `[x]`.
 - [ ] Record verified humans, picks, tx IDs and payouts
 - [ ] Demo video + README section (how it works, contract address, real numbers)
 
+### H7 — ENS: a name for every creator (`alice.muso.eth`)
+- [x] Off-chain subnames via CCIP-Read gateway (EIP-3668 + ENSIP-10): username → label, oldest account wins a collision
+- [x] Records: linked payout wallet (ETH + all EVM coin types incl. Arc) and profile text records (name, bio, avatar, location if shown, url, socials)
+- [x] `MusoOffchainResolver` contract + 8 Foundry tests + deploy script; gateway signatures checked against the real contract on a local chain
+- [x] API: status, me/ens, resolve, reverse; 7 e2e tests
+- [x] App: ENS name on the wallet card, creators' names in on-chain payouts, sponsor's primary name on pools
+- [ ] Register parent name on Sepolia, deploy resolver, set it as the resolver, resolve a creator's name in the ENS app
+- [ ] Demo: pay a creator by `name.muso.eth` from MetaMask
+
 ### H4 — Extra tracks (only if prize limit allows)
 - [ ] **Chainlink CRE** ($1.5k): workflow fetches pool allocations from our API, validates budget/caps/eligibility, calls `setAllocations` on-chain; successful CLI simulation
 - [x] **Arkiv** — "Build on Arkiv" track (one of our 3 picks): 5 `muso.*` schemas on Rabdi; worker publishes events (expire event end + 30 d), clips (read-only, handed to creator wallet), read-only attention reports + per-clip shares, payout receipts (link to Arc tx); takedowns delete; idempotent

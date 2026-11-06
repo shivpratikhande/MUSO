@@ -32,6 +32,7 @@ export function WalletCard() {
     onError: (e) => setError(errorMessage(e)),
   });
   const address = q.data?.address ?? null;
+  const ensName = q.data?.ensName ?? null;
 
   return (
     <Card>
@@ -39,11 +40,23 @@ export function WalletCard() {
         USDC payout wallet · Arc
       </AppText>
       {address ? (
-        <AppText variant="bodyStrong">{short(address)}</AppText>
+        ensName ? (
+          <View>
+            <AppText variant="bodyStrong" selectable>
+              {ensName}
+            </AppText>
+            <AppText variant="caption" tone="muted">
+              ENS name for {short(address)} · anyone can pay you at this name
+            </AppText>
+          </View>
+        ) : (
+          <AppText variant="bodyStrong">{short(address)}</AppText>
+        )
       ) : (
         <AppText variant="caption">
           Some reward pools are funded on Arc and pay creators in USDC, directly to your wallet.
           MUSO pays the network fees.
+          {ensName ? ` Link a wallet and your ENS name ${ensName} will point to it.` : ''}
         </AppText>
       )}
       <FormError message={error} />

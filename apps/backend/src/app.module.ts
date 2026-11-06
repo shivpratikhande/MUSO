@@ -11,6 +11,7 @@ import { ArcModule } from './modules/arc/arc.module.js';
 import { ArkivModule } from './modules/arkiv/arkiv.module.js';
 import { ArtistsModule } from './modules/artists/artists.module.js';
 import { AuthModule } from './modules/auth/auth.module.js';
+import { EnsModule } from './modules/ens/ens.module.js';
 import { EventsModule } from './modules/events/events.module.js';
 import { GenresModule } from './modules/genres/genres.module.js';
 import { HealthModule } from './modules/health/health.module.js';
@@ -87,6 +88,7 @@ import { StorageModule } from './storage/storage.module.js';
     ArcModule,
     WorldIdModule,
     ArkivModule,
+    EnsModule,
     X402Module,
   ],
   providers: [
