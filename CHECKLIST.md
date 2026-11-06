@@ -237,10 +237,18 @@ A UI that exists but isn't wired to the backend is `[~]`, never `[x]`.
 
 > Plan: **Option C** (Hedera x402 + Arc + World ID); H4 only if more than 3 partner prizes are allowed.
 > Everything plugs into the existing payment-provider interface, ledger, reward-pool maths and anti-fraud rules.
+> Built entirely during the event → **main tracks, not Continuity**.
+>
+> **Our 3 partner picks:**
+> 1. **Hedera — AI Agents That Pay: x402 on Hedera** ($6.5k: $3k / $2k / $1.5k) → H1
+> 2. **Arc — Best Smart Contracts with Advanced Stablecoin Logic** ($3k) → H2 + H6 contracts (Studio URL + Studio in demo required)
+> 3. **World — Best Use of IDKit** ($2.5k, up to 2 × $1,250) → H3 + H6 (one human, one pick)
 
 ### H0 — Preparation
-- [ ] Confirm with ETHGlobal that the pre-existing codebase is allowed (and how to disclose it)
-- [ ] Confirm the partner-prize limit (usually 3)
+- [x] Codebase built during the event (no Continuity Track needed)
+- [ ] Keep small, frequent commits from here on (judges read the git history)
+- [ ] Confirm the partner-prize limit (prizes page mentions "three picks")
+- [ ] Confirm with ETHGlobal that a testnet prediction game at the venue is OK (H6)
 - [x] MIT licence + "How we used AI" section in README
 - [~] Read current docs: Hedera x402 + facilitators ✅ · Arc Studio + Circle tools · World IDKit
 - [ ] Accounts/keys in `.env` only: Hedera testnet account, Arc Studio / Circle, World developer app
@@ -280,6 +288,58 @@ A UI that exists but isn't wired to the backend is `[~]`, never `[x]`.
 - [ ] Only verified humans can claim from the Arc pool
 - [ ] Integration debrief: time to first success, friction, missing docs, top improvement
 - [ ] Confirm IDKit works for our mobile app (else a small web step)
+
+### H6 — Live at ETHGlobal: Carrom Showdown 🎯 (build after H3)
+
+> A real MUSO event at the venue: attendees film the match, pick a player with **test USDC on Arc**, join that player's fan club, and winners split the pool. World ID = one real human, one pick.
+> **Testnet only, no real money. Called a "prediction game", never betting.** Feeds the Arc and World picks above.
+>
+> **On-chain (Arc):** test-USDC deposits per pick · pool total per player · market status · winning player (set by MUSO allocator) · payouts + gasless claims · refunds · best-clip creator share
+> **Off-chain (MUSO backend):** World ID proof + nullifier check · event, players, schedule · clips + feed · watch time for best clip · fan clubs, counts, reactions · share cards · referee entering the result
+>
+> Flow: World ID verify (off) → backend approves pick → deposit test USDC (on) → referee enters winner (off) → backend settles (on) → winners claim (on)
+
+#### H6.0 — Setup
+- [ ] ETHGlobal approval (see H0)
+- [ ] Match time, players and a referee fixed
+- [ ] Test-USDC starter amount for each verified person (e.g. 5 USDC from MUSO's wallet)
+
+#### H6.1 — Event in MUSO (reuses existing features)
+- [ ] "ETHGlobal Mumbai Carrom Showdown" event; players added as the lineup
+- [ ] Event Live during the match → existing capture/upload works
+- [ ] Shared event feed of clips and photos
+
+#### H6.2 — Prediction contract on Arc (built in Arc Studio)
+- [ ] `PredictionPools`: createMarket → pick (deposit test USDC) → settle winner (MUSO allocator) → claim / claimFor (gasless relay, like H2)
+- [ ] Parimutuel payout: winners split the pool; small fixed share to the best-clip creator
+- [ ] Refund all if no one picked the winner or the match is cancelled
+- [ ] Picks lock at match start (on-chain deadline)
+- [ ] Access control, reentrancy protection, safe ERC-20 transfers, events; tests
+- [ ] Deployed address + first live market
+
+#### H6.3 — Backend (`predictions` module)
+- [ ] Market model: event, options (players), status Open → Locked → Settled / Refunded
+- [ ] Pick API: World ID proof required → one pick per nullifier per market → on-chain deposit checked
+- [ ] Referee/admin "declare winner" → settle on-chain → payouts (idempotent worker)
+- [ ] e2e tests: happy path, duplicate human, late pick, no winner → refund, cancelled match
+
+#### H6.4 — Social layer
+- [ ] Fan clubs: your pick puts you in that player's club; live fan count per side
+- [ ] Event hype feed (H6.1)
+- [ ] "I called it 🏆" share card for winners (name, pick, payout, tx link)
+- [ ] Best clip award: most verified watch time gets the creator share
+- [ ] *Stretch:* big-screen emoji reactions · invite a friend · squad picks · predictor leaderboard
+
+#### H6.5 — Web page for attendees (no app install)
+- [ ] Join in 30 seconds: QR → World ID → wallet → pick a player
+- [ ] Live view: pool size, fan counts, odds per player
+- [ ] Results page + share card
+- [ ] Big-screen view for the venue
+
+#### H6.6 — Live run & demo
+- [ ] Run the match with real attendees
+- [ ] Record verified humans, picks, tx IDs and payouts
+- [ ] Demo video + README section (how it works, contract address, real numbers)
 
 ### H4 — Extra tracks (only if prize limit allows)
 - [ ] **Chainlink CRE** ($1.5k): workflow fetches pool allocations from our API, validates budget/caps/eligibility, calls `setAllocations` on-chain; successful CLI simulation
