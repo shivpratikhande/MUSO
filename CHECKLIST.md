@@ -258,13 +258,15 @@ A UI that exists but isn't wired to the backend is `[~]`, never `[x]`.
 - [ ] Demo video ≤ 5 min showing settlement on HashScan
 
 ### H2 — Arc: USDC reward-pool contract ($3k) — *also covers M6 contract + M7 reward payouts*
-- [ ] Contract built in **Arc Studio** (required): createCampaign (sponsor deposits USDC), setAllocations (Merkle root), claim (once per creator), reclaimUnallocated (leftover back to sponsor)
-- [ ] Access control, reentrancy protection, safe ERC-20 transfers, events, contract tests
-- [ ] Reusable by other builders (bonus)
-- [ ] Deployed to Arc testnet; addresses in README
-- [ ] Backend: Milestone 5 payout maths → Merkle tree → posts root, stores each creator's proof
-- [ ] Creator claim page (wallet connect on Arc testnet)
-- [ ] Architecture diagram, Arc Studio project URL, docs of core functions + Circle tools
+- [x] Contract built in **Arc Studio** (required) — [project](https://studio.arc.io/app/a2e5e21f-ce8e-4ba9-87f0-b46aa7e6cc03?thread=d76eb9e9-1820-493a-86f5-9fffd28f605d): createCampaign (sponsor deposits USDC), award/awardMany (allocator, only after end), claim/claimFor (gasless relay), reclaimUnawarded
+- [x] Access control, reentrancy protection, safe ERC-20 transfers, events; independent review tests + fork test of the live deploy (2 findings fixed in Studio)
+- [x] Reusable by other builders (bonus): ownerless, any sponsor can create a campaign with any allocator
+- [x] Deployed to Arc testnet: `0x7cbbb1f0e9d7301c16e6d544f9a55d13030f74eb`
+- [x] First live campaign: create → awardMany → relayed claimFor (see `packages/contracts/ARC_STUDIO.md`)
+- [x] Final Studio source in `packages/contracts/studio/`; runtime bytecode matches the live contract
+- [ ] Backend: Milestone 5 watch-time split → USDC shares → `awardMany` via allocator → relayed `claimFor`
+- [ ] Creator wallet linking (signature proof) + creator claim status in app
+- [ ] Architecture diagram, docs of core functions + Circle tools in README
 - [ ] Demo video showing Arc Studio
 
 ### H3 — World ID: one real human per reward pool ($2.5k)

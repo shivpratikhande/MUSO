@@ -1,45 +1,44 @@
-# Building RewardCampaigns in Arc Studio
+# MUSO reward campaigns on Arc (built in Arc Studio)
 
-The Arc track requires the contract to be built in **[Arc Studio](https://studio.arc.io)** with a
-shareable project URL. This is the exact workflow we used, and the prompt we gave Studio.
+The Arc track requires the contract to be built in **[Arc Studio](https://studio.arc.io)**.
 
-## Steps
-1. Open https://studio.arc.io and sign in with your Circle account.
-2. Create a new project named **MUSO RewardCampaigns**.
-3. Paste the prompt below. Attach `src/RewardCampaigns.sol` and `test/RewardCampaigns.t.sol` (or paste them).
-4. Let Studio review the contract and run its checks. Keep the record of what it flagged (screenshot or copy) for the demo.
-5. Deploy to **Arc Testnet** from Studio with constructor arguments:
-   - `admin` = your wallet address
-   - `allocator` = `0x93923e856525D3BA5ac06D1047B4bC60944fdd00` (MUSO backend allocator/relayer)
-   - `tokens` = `[0x3600000000000000000000000000000000000000, 0x89B50855Aa3bE2F677cD6303Cec089B5F319D72a]` (USDC, EURC)
-6. Copy the **deployed address** into the root `.env` as `ARC_REWARD_CAMPAIGNS_ADDRESS=`.
-7. Copy the **Studio project URL** into the root README under "Arc".
+- **Studio project:** https://studio.arc.io/app/a2e5e21f-ce8e-4ba9-87f0-b46aa7e6cc03?thread=d76eb9e9-1820-493a-86f5-9fffd28f605d
+- **Deployed (Arc Testnet, chain 5042002):** `0x7cbbb1f0e9d7301c16e6d544f9a55d13030f74eb`
+- **Token:** USDC ERC-20 interface `0x3600000000000000000000000000000000000000` (6 decimals)
+- **MUSO allocator / relayer:** `0x93923e856525D3BA5ac06D1047B4bC60944fdd00`
+- **Source:** [`studio/RewardCampaigns.sol`](studio/RewardCampaigns.sol), exactly as Studio deployed it (deploy tx `0x8d3c0ca6…f436`, sent from the sponsor's Circle smart wallet)
+- **Source matches chain:** compiled with solc 0.8.28 (optimizer 200 runs, Prague), the 6,802-byte runtime code is identical to the live contract except the USDC immutable. Arc has no explorer verification yet, so this comparison is the proof.
 
-## Prompt for Arc Studio
+## How it works
+1. `createCampaign(title, budget, maxPerRecipient, allocator, endsAt)`: the sponsor deposits the
+   exact USDC budget into escrow. No owner or admin can move it.
+2. After `endsAt` (and for 14 days), the allocator calls `award` / `awardMany` (up to 500 per call).
+   MUSO computes each creator's share from verified watch time. Each address can be awarded once,
+   capped by `maxPerRecipient`, and the total can never exceed the budget.
+3. `claim(id)` or `claimFor(id, creator)`: anyone can submit the claim, so MUSO pays the gas, but the
+   USDC always goes to the creator.
+4. `reclaimUnawarded(id)`: after the award window, the sponsor recovers whatever was not awarded.
 
-> Build and deploy a reusable, sponsor-funded stablecoin reward escrow for Arc called
-> `RewardCampaigns` (Solidity ^0.8.28, OpenZeppelin 5).
->
-> **Roles:** `DEFAULT_ADMIN_ROLE` manages which tokens are allowed (USDC
-> `0x3600000000000000000000000000000000000000` and EURC on Arc testnet). `ALLOCATOR_ROLE`
-> (an app backend or a Chainlink CRE workflow) publishes allocations.
->
-> **Flow:**
-> 1. `createCampaign(token, deposit, endsAt, claimWindow, maxPerRecipient, externalRef)`: the
->    sponsor deposits USDC via `transferFrom`. The contract checks the full amount arrived.
-> 2. After `endsAt`, the allocator calls `publishAllocations(id, merkleRoot, allocatedTotal)`
->    once, with `allocatedTotal <= deposit`. This opens a claim window.
-> 3. `claim(id, account, amount, proof)`: anyone can submit (gasless relaying) but funds always
->    go to `account`. Each account claims once, `amount <= maxPerRecipient`, and the total
->    claimed can never exceed `allocatedTotal`. Leaves use OpenZeppelin StandardMerkleTree
->    encoding of `(uint256 campaignId, address account, uint256 amount)`.
-> 4. `reclaim(id)`: after the claim window the sponsor recovers `deposit - claimed`. If
->    allocations were never published, after a 30-day grace period the sponsor recovers
->    everything.
->
-> **Security:** ReentrancyGuard, SafeERC20, custom errors, events for every state change, no
-> admin path to move campaign funds, and campaign proofs bound to the campaign id. Use the
-> USDC ERC-20 interface (6 decimals) only, never Arc's 18-decimal native balance.
->
-> Please review against Arc's EVM differences, then run the attached Foundry tests (including
-> the funds-conservation fuzz test) and deploy to Arc Testnet.
+## How we built it
+1. We wrote a reference design ourselves (`src/RewardCampaigns.sol`, Merkle-based, with tests).
+2. Arc Studio generated its own allocation-based design. We kept Studio's design and reviewed it
+   independently (`test/RewardCampaignsStudio.t.sol`).
+3. The review found two issues: (a) awards were possible before the campaign ended; (b) the sponsor
+   could award the whole budget to itself, so creators could not be paid. We asked Studio to fix
+   both. Studio fixed them and deployed to Arc Testnet.
+4. `test/RewardCampaignsStudio.t.sol` (9 tests, including a 2,000-run funds-conservation fuzz test) now
+   asserts both fixes. We also checked the live deploy on a fork of Arc Testnet: awards before the end, sponsor
+   self-award, and allocator self-award are all rejected. An allocator award after the end, plus
+   a relayed `claimFor`, pays the creator.
+
+## First live campaign (Arc Testnet)
+Campaign #1: a 1 USDC budget split 60/40 between two creators, with both claims submitted by MUSO (the creators paid no gas).
+
+| Step | Transaction |
+|---|---|
+| Sponsor `0xF879…19E6` creates the campaign (1 USDC escrowed) | [0x9aa0ca6f…](https://testnet.arcscan.app/tx/0x9aa0ca6f3724f1de79e34cafecd5a81322d384f4f8928e7f13c5d6b7cd473a48) |
+| After it ends, the allocator calls `awardMany` (0.6 + 0.4 USDC) | [0x9a899019…](https://testnet.arcscan.app/tx/0x9a899019ace8695ee0508099bd84b4a29f1fba6a42aba736c2f801c0f92c292f) |
+| Relayed `claimFor` creator 1 → +0.600000 USDC | [0xfca3604c…](https://testnet.arcscan.app/tx/0xfca3604c046c5676852550ae6cb02f70b3270eeadf88d7d1ebad263d8e839919) |
+| Relayed `claimFor` creator 2 → +0.400000 USDC | [0xc9165875…](https://testnet.arcscan.app/tx/0xc9165875adc2c9b33c210ede52710d330940c9f5dde0708b615342e633f96c27) |
+
+The contract's USDC balance afterwards is 0: everything the sponsor deposited reached the creators.
