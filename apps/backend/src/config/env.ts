@@ -127,6 +127,19 @@ export const EnvSchema = z.object({
   /** `staging` works with the World ID Simulator; real phones need `production`. */
   WORLD_ID_ENVIRONMENT: z.enum(['production', 'staging']).default('staging'),
   WORLD_ID_VERIFY_URL: z.url().default('https://developer.world.org/api/v4/verify'),
+  /** Arkiv: public, queryable record of events, clips and sponsored pools' attention reports. */
+  ARKIV_ENABLED: z
+    .enum(['true', 'false'])
+    .default('false')
+    .transform((v) => v === 'true'),
+  /** MUSO's writer wallet on Arkiv (testnet; pays fees in tGLM). Server only. */
+  ARKIV_WRITER_PRIVATE_KEY: z
+    .string()
+    .regex(/^0x[0-9a-fA-F]{64}$/, '0x-prefixed 32-byte hex key')
+    .optional(),
+  /** Free key from hub.arkiv.network/access-keys (the public RPC is heavily rate limited). */
+  ARKIV_ACCESS_KEY: z.string().default(''),
+  ARKIV_EXPLORER_URL: z.url().default('https://rabdi.explorer.arkiv.network'),
   /** Run payment reconciliation + earnings release timers in this process. */
   PAYMENTS_WORKER_ENABLED: z
     .enum(['true', 'false'])
@@ -158,6 +171,9 @@ function checkEnv(env: Env): string[] {
     problems.push(
       '  - WORLD_ID_APP_ID, WORLD_ID_RP_ID, WORLD_ID_SIGNING_KEY: required when WORLD_ID_ENABLED=true',
     );
+  }
+  if (env.ARKIV_ENABLED && !env.ARKIV_WRITER_PRIVATE_KEY) {
+    problems.push('  - ARKIV_WRITER_PRIVATE_KEY: required when ARKIV_ENABLED=true');
   }
   if (env.NODE_ENV === 'production' && env.PAYMENTS_PROVIDER === 'sandbox') {
     problems.push('  - PAYMENTS_PROVIDER: the sandbox provider cannot be used in production');

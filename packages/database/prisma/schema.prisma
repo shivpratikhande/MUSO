@@ -258,6 +258,8 @@ model Event {
   reviewedById    String?           @map("reviewed_by_id") @db.Uuid
   reviewedAt      DateTime?         @map("reviewed_at")
   cancelledAt     DateTime?         @map("cancelled_at")
+  /// Arkiv: key of this event's public `muso.events` entity (set once published).
+  arkivKey         String?   @map("arkiv_key")
   createdAt       DateTime          @default(now()) @map("created_at")
   updatedAt       DateTime          @updatedAt @map("updated_at")
   deletedAt       DateTime?         @map("deleted_at")
@@ -418,6 +420,9 @@ model Post {
   saveCount         Int                     @default(0) @map("save_count")
   reportCount       Int                     @default(0) @map("report_count")
   publishedAt       DateTime?               @map("published_at")
+  /// Arkiv: key of this clip's public `muso.clips` entity, and the wallet it was handed to.
+  arkivKey          String?                 @map("arkiv_key")
+  arkivOwner        String?                 @map("arkiv_owner")
   createdAt         DateTime                @default(now()) @map("created_at")
   updatedAt         DateTime                @updatedAt @map("updated_at")
   deletedAt         DateTime?               @map("deleted_at")
@@ -853,6 +858,9 @@ model RewardPool {
   arcSponsor          String?          @map("arc_sponsor")
   /// Only creators verified as unique humans (World ID) can earn. Always on for Arc-funded pools.
   humanOnly           Boolean          @default(false) @map("human_only")
+  /// Arkiv: the final, read-only attention report (and whether its per-clip shares are written).
+  arkivReportKey      String?          @map("arkiv_report_key")
+  arkivSharesAt       DateTime?        @map("arkiv_shares_at")
   createdAt           DateTime         @default(now()) @map("created_at")
   updatedAt           DateTime         @updatedAt @map("updated_at")
 
@@ -927,6 +935,8 @@ model ArcPayout {
   awardTx     String?         @map("award_tx")
   claimTx     String?         @map("claim_tx")
   note        String?
+  /// Arkiv: key of the public payout receipt.
+  arkivKey    String?         @map("arkiv_key")
   createdAt   DateTime        @default(now()) @map("created_at")
   updatedAt   DateTime        @updatedAt @map("updated_at")
 

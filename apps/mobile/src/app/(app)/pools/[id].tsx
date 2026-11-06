@@ -16,6 +16,7 @@ import {
   Pill,
 } from '@/components/ui';
 import { openWalletPage } from '@/features/arc/walletPage';
+import { ArkivProofCard } from '@/features/arkiv/ArkivProofCard';
 import { VerifyHumanCard } from '@/features/world-id/VerifyHumanCard';
 import { newIdempotencyKey, runCheckout } from '@/features/money/checkout';
 import { api, errorMessage } from '@/services/api';
@@ -154,6 +155,8 @@ export default function PoolScreen() {
           />
         </Card>
       ) : null}
+
+      {p.status === 'DISTRIBUTED' ? <ArkivProofCard poolId={p.id} /> : null}
 
       {q.data.arcPayouts.length ? (
         <Card>

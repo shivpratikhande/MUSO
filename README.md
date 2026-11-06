@@ -301,6 +301,30 @@ Tests:
 | Bob (linked his wallet after Alice was paid) | 0.67 USDC ([claim tx](https://testnet.arcscan.app/tx/0xdf5f7aa0409fe76e60afd89cf23d1486e016255bd7d7d05ae7fd62f2db2cdd3b)) |
 | Gas paid by creators | none |
 
+## Arkiv — public proof of real attention (ETHGlobal track)
+
+Sponsors fund MUSO reward pools to pay for **real human attention**, so they need numbers they can trust. When a sponsored pool ends, MUSO publishes its **attention report** to [Arkiv](https://arkiv.network): verified human viewers, watch time, each clip's share and every USDC payout on Arc. It's **read-only**, so not even MUSO can change it later. The app's **"Public proof on Arkiv"** card reads the report **from Arkiv, not from MUSO's database**, and anyone can run the same query.
+
+- **Network:** Rabdi testnet (chain 7794095), `@arkiv-network/sdk` 1.0.1
+- **Writer wallet** (`$creator` of every entity): **`0x278A05621217b3B8680c56e19B5B9cf48Bd6BAfB`** ([explorer](https://rabdi.explorer.arkiv.network/address/0x278A05621217b3B8680c56e19B5B9cf48Bd6BAfB))
+- **Entities:**
+  - `muso.events`: expire 30 days after the show
+  - `muso.clips`: read-only, **handed to the creator's wallet** once they link one
+  - `muso.attention-reports` + `muso.attention-shares`: read-only, ~182-day audit window
+  - `muso.payout-receipts`: link to Arc USDC transactions
+
+  Details in [`arkiv/schema.md`](arkiv/schema.md) and [`arkiv/how-you-use-arkiv.md`](arkiv/how-you-use-arkiv.md).
+- **Query it yourself** (no MUSO server, no private key): `pnpm --filter @muso/backend arkiv:query [poolId]`, or in code:
+  ```ts
+  publicClient.select({ $key: true, poolId: true, verifiedViewers: true, watchSeconds: true, paid: true })
+    .from(defineSchema("muso.attention-reports", { poolId: str().indexed(), /* … */ }))
+    .createdBy("0x278A05621217b3B8680c56e19B5B9cf48Bd6BAfB")
+    .fetch()
+  ```
+- **Judging files:** [`arkiv/why-arkiv.md`](arkiv/why-arkiv.md) · [`arkiv/how-you-use-arkiv.md`](arkiv/how-you-use-arkiv.md) · [`arkiv/reach.md`](arkiv/reach.md) · [`arkiv/friction.md`](arkiv/friction.md)
+- **Code:** `apps/backend/src/modules/arkiv` (schemas, SDK gateway, sync worker, proof endpoint) and `apps/mobile/src/features/arkiv/ArkivProofCard.tsx`. Tests: `apps/backend/test/arkiv.e2e-spec.ts` (in-memory Arkiv). It covers lifetimes, read-only flags, the handover to the creator, takedowns, no double writes, and that the proof card comes from Arkiv rather than the database.
+- **Configure:** `ARKIV_ENABLED=true`, `ARKIV_WRITER_PRIVATE_KEY` (fund it with tGLM at [hub.arkiv.network/faucet](https://hub.arkiv.network/faucet)), `ARKIV_ACCESS_KEY` (from [hub.arkiv.network/access-keys](https://hub.arkiv.network/access-keys)).
+
 ## World ID — one real human per reward account (ETHGlobal track)
 
 Watch-time rewards attract farming: one person with many accounts watching their own videos. MUSO uses **World ID Proof of Human** (IDKit v4, World ID 4.0) so that **one human can verify only one MUSO account**. Reward pools can be marked **verified humans only**, and every pool funded with USDC on Arc is one. World ID isn't used for login, and MUSO stores no personal data: only an anonymous, action-scoped **nullifier**.

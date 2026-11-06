@@ -350,7 +350,10 @@ A UI that exists but isn't wired to the backend is `[~]`, never `[x]`.
 
 ### H4 — Extra tracks (only if prize limit allows)
 - [ ] **Chainlink CRE** ($1.5k): workflow fetches pool allocations from our API, validates budget/caps/eligibility, calls `setAllocations` on-chain; successful CLI simulation
-- [ ] **Arkiv** ($4k): artist profiles, events, post metadata as Arkiv entities with meaningful expiry; Discover/Events read from Arkiv; all required `/arkiv/*.md` files + runnable query + writer wallet
+- [x] **Arkiv** — "Build on Arkiv" track (one of our 3 picks): 5 `muso.*` schemas on Rabdi; worker publishes events (expire event end + 30 d), clips (read-only, handed to creator wallet), read-only attention reports + per-clip shares, payout receipts (link to Arc tx); takedowns delete; idempotent
+- [x] Arkiv user-visible read: pool screen "Public proof on Arkiv" reads the report from Arkiv (test proves DB changes don't affect it); `arkiv:query` script for judges
+- [x] `/arkiv/schema.md`, `why-arkiv.md`, `how-you-use-arkiv.md`, `reach.md`, `friction.md`; README section with writer wallet + query
+- [ ] Arkiv live: fund writer `0x278A…BAfB` with tGLM + access key → first real report on Rabdi (link in README)
 - [ ] **Swarm bonus** (+$0.5k): free event videos on Swarm, reference stored in the Arkiv post, app plays from Swarm; `/arkiv/swarm.md`
 
 ### H5 — Submission & quality (part of Milestone 7)

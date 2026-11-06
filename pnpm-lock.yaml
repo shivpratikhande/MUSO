@@ -51,6 +51,9 @@ importers:
 
   apps/backend:
     dependencies:
+      '@arkiv-network/sdk':
+        specifier: 1.0.1
+        version: 1.0.1(typescript@6.0.3)(viem@2.57.16(typescript@6.0.3)(zod@4.6.7))
       '@aws-sdk/client-s3':
         specifier: ^3.1163.0
         version: 3.1163.0
@@ -422,6 +425,16 @@ packages:
   '@angular-devkit/schematics@22.2.4':
     resolution: {integrity: sha512-9pRNtcZN87yM7KQX+HTxGatrm86y30JxVwkF2WNG1pR0e9yeiYWc1KQ5hRS1Nq1LULoP95HApc+TBXqUXzF4Ag==}
     engines: {node: ^22.22.3 || ^24.15.0 || >=26.0.0, npm: ^6.11.0 || ^7.5.6 || >=8.0.0, yarn: '>= 1.13.0'}
+
+  '@arkiv-network/sdk@1.0.1':
+    resolution: {integrity: sha512-DCOFdGunn4I5nYrvIV/YIkMCkLZM7EQNSyNPtqpmQkP2JzTEfRLBJleBSB2rokWMa833/9P8DMiwsEXACr3CUQ==}
+    engines: {node: '>=18.0.0'}
+    peerDependencies:
+      typescript: '>=5.0.0'
+      viem: ^2.0.0
+    peerDependenciesMeta:
+      typescript:
+        optional: true
 
   '@aws-sdk/checksums@3.1002.2':
     resolution: {integrity: sha512-u57THWR5YOCqjIzg5og8r5dDc54n7hENs2eVy+aw1+Fd+QERa2x72qNlsiMNJI9svSpQp3WevkSKljzIG6x1YA==}
@@ -7214,6 +7227,12 @@ snapshots:
       rxjs: 7.8.2
     transitivePeerDependencies:
       - chokidar
+
+  '@arkiv-network/sdk@1.0.1(typescript@6.0.3)(viem@2.57.16(typescript@6.0.3)(zod@4.6.7))':
+    dependencies:
+      viem: 2.57.16(typescript@6.0.3)(zod@4.6.7)
+    optionalDependencies:
+      typescript: 6.0.3
 
   '@aws-sdk/checksums@3.1002.2':
     dependencies:

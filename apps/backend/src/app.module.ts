@@ -8,6 +8,7 @@ import { ResponseEnvelopeInterceptor } from './common/interceptors/response-enve
 import { validateEnv, type Env } from './config/env.js';
 import { DatabaseModule } from './database/database.module.js';
 import { ArcModule } from './modules/arc/arc.module.js';
+import { ArkivModule } from './modules/arkiv/arkiv.module.js';
 import { ArtistsModule } from './modules/artists/artists.module.js';
 import { AuthModule } from './modules/auth/auth.module.js';
 import { EventsModule } from './modules/events/events.module.js';
@@ -85,6 +86,7 @@ import { StorageModule } from './storage/storage.module.js';
     RewardsModule,
     ArcModule,
     WorldIdModule,
+    ArkivModule,
     X402Module,
   ],
   providers: [

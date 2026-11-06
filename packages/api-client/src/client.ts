@@ -51,6 +51,7 @@ import {
   type SignInInput,
   type SignUpInput,
   type ArcLink,
+  type ArkivProofDto,
   type HumanStatus,
   type WorldIdContext,
   type MyWallet,
@@ -314,6 +315,10 @@ export function createApiClient(opts: ApiClientOptions) {
       setPricing: (postId: string, body: PricingInput) =>
         request<PostDto>('PATCH', `/posts/${postId}/pricing`, { body }),
       download: (postId: string) => request<{ url: string }>('GET', `/posts/${postId}/download`),
+    },
+    arkiv: {
+      /** A pool's public attention report, read live from Arkiv. */
+      proof: (poolId: string) => request<ArkivProofDto>('GET', `/reward-pools/${poolId}/arkiv`),
     },
     human: {
       status: () => request<HumanStatus>('GET', '/me/human'),

@@ -11,9 +11,11 @@
     "typecheck": "tsc --noEmit -p tsconfig.json",
     "test": "vitest run",
     "test:e2e": "vitest run --config ./vitest.config.e2e.ts",
-    "arc:demo": "tsx scripts/arc-demo.ts"
+    "arc:demo": "tsx scripts/arc-demo.ts",
+    "arkiv:query": "tsx scripts/arkiv-query.ts"
   },
   "dependencies": {
+    "@arkiv-network/sdk": "1.0.1",
     "@aws-sdk/client-s3": "^3.1163.0",
     "@aws-sdk/s3-request-presigner": "^3.1163.0",
     "@hiero-ledger/sdk": "2.90.1",
