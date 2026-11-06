@@ -77,6 +77,7 @@ export class RewardsService {
         budgetMinor: input.budgetMinor,
         perVideoCapBps: input.perVideoCapBps,
         minQualifiedViewers: input.minQualifiedViewers,
+        humanOnly: input.humanOnly,
         startsAt,
         endsAt,
       },
@@ -130,7 +131,12 @@ export class RewardsService {
           creatorId: a.creatorId,
           qualifiedMs: Number(a.qualifiedMs),
           qualifiedViewers: a.qualifiedViewers,
-          eligible: a.qualifiedViewers >= pool.minQualifiedViewers && a.qualifiedMs > 0n,
+          eligible:
+            a.shareMinor > 0 ||
+            (a.qualifiedViewers >= pool.minQualifiedViewers &&
+              a.qualifiedMs > 0n &&
+              !pool.humanOnly),
+          needsHuman: false,
           shareMinor: a.shareMinor,
           capped: a.capped,
         }))
@@ -375,6 +381,7 @@ export class RewardsService {
           shareMinor: r.shareMinor,
           eligible: r.eligible,
           capped: r.capped,
+          needsHuman: r.needsHuman,
         };
       }),
     );
@@ -399,6 +406,7 @@ export class RewardsService {
       currency: p.currency,
       perVideoCapBps: p.perVideoCapBps,
       minQualifiedViewers: p.minQualifiedViewers,
+      humanOnly: p.humanOnly,
       startsAt: p.startsAt.toISOString(),
       endsAt: p.endsAt.toISOString(),
       status: poolStatus(p),

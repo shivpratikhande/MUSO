@@ -5,6 +5,7 @@ import { router } from 'expo-router';
 import { Pressable, RefreshControl, ScrollView, View } from 'react-native';
 import { AppText, Card, EmptyState, ErrorState, LoadingState, Pill } from '@/components/ui';
 import { WalletCard } from '@/features/arc/WalletCard';
+import { VerifyHumanCard } from '@/features/world-id/VerifyHumanCard';
 import { api, errorMessage } from '@/services/api';
 import { useTheme } from '@/theme';
 
@@ -94,6 +95,7 @@ export default function EarningsScreen() {
       </Card>
 
       <WalletCard />
+      <VerifyHumanCard />
 
       <View style={{ flexDirection: 'row', gap: t.space.md }}>
         <Card style={{ flex: 1 }}>

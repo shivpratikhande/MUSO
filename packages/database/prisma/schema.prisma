@@ -45,6 +45,8 @@ model User {
   /// Arc (EVM) wallet for on-chain USDC rewards, lowercase. Linked by signing a challenge.
   walletAddress   String?   @unique @map("wallet_address")
   walletLinkedAt  DateTime? @map("wallet_linked_at")
+  /// Proved to be a unique human with World ID (one World ID per MUSO account).
+  humanVerifiedAt DateTime? @map("human_verified_at")
   onboardedAt     DateTime? @map("onboarded_at")
   createdAt       DateTime  @default(now()) @map("created_at")
   updatedAt       DateTime  @updatedAt @map("updated_at")
@@ -79,6 +81,7 @@ model User {
   rewardPools       RewardPool[]
   watchSessions     WatchSession[]
   arcPayouts        ArcPayout[]
+  humanVerification HumanVerification?
 
   @@map("users")
 }
@@ -848,6 +851,8 @@ model RewardPool {
   /// in USD cents, funded on-chain (not via checkout) and paid out on-chain to creator wallets.
   arcCampaignId       Int?             @unique @map("arc_campaign_id")
   arcSponsor          String?          @map("arc_sponsor")
+  /// Only creators verified as unique humans (World ID) can earn. Always on for Arc-funded pools.
+  humanOnly           Boolean          @default(false) @map("human_only")
   createdAt           DateTime         @default(now()) @map("created_at")
   updatedAt           DateTime         @updatedAt @map("updated_at")
 
@@ -880,6 +885,24 @@ model RewardAllocation {
 
   @@unique([poolId, postId])
   @@map("reward_allocations")
+}
+
+/// A World ID proof of human. The nullifier is the same for one person and one action, so the
+/// unique constraint stops one human from verifying several MUSO accounts. Stores no personal data.
+model HumanVerification {
+  id          String   @id @default(uuid(7)) @db.Uuid
+  userId      String   @unique @map("user_id") @db.Uuid
+  action      String
+  /// 256-bit field element as a decimal (World ID recommends NUMERIC(78, 0)).
+  nullifier   Decimal  @db.Decimal(78, 0)
+  credential  String
+  environment String
+  createdAt   DateTime @default(now()) @map("created_at")
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([action, nullifier])
+  @@map("human_verifications")
 }
 
 enum ArcPayoutStatus {

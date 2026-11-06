@@ -22,6 +22,8 @@ export const CreateRewardPoolSchema = z
       .max(MAX_POOL_BUDGET_MINOR, 'Maximum pool is ₹10,00,000'),
     perVideoCapBps: z.number().int().min(500).max(10_000).default(2_500),
     minQualifiedViewers: z.number().int().min(1).max(100).default(3),
+    /** Only creators verified as unique humans (World ID) can earn. */
+    humanOnly: z.boolean().default(false),
     /** Defaults: event start → 7 days after the event ends. */
     startsAt: isoDate.optional(),
     endsAt: isoDate.optional(),
@@ -79,6 +81,8 @@ export interface RewardPoolDto {
   allocatedMinor: number;
   unallocatedMinor: number | null;
   viewer: { canManage: boolean; canFund: boolean };
+  /** Only World ID–verified humans can earn from this pool. */
+  humanOnly: boolean;
   /** Set when the pool is funded by an on-chain Arc campaign (amounts are then USD cents). */
   arc: ArcPoolInfo | null;
 }
@@ -99,6 +103,8 @@ export interface LeaderboardEntry {
   shareMinor: number;
   eligible: boolean;
   capped: boolean;
+  /** Excluded because the pool is for verified humans and this creator isn't verified yet. */
+  needsHuman: boolean;
 }
 
 export interface RewardPoolDetail extends RewardPoolDto {

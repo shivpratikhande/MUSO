@@ -281,13 +281,14 @@ A UI that exists but isn't wired to the backend is `[~]`, never `[x]`.
 - [ ] Demo video showing Arc Studio
 
 ### H3 — World ID: one real human per reward pool ($2.5k)
-- [ ] IDKit with **Proof of Human** (minimum sufficient credential — justified in docs)
-- [ ] Required to join a reward pool (not used as a login)
-- [ ] Backend verifies proof; campaign-scoped nullifier stops the same human joining twice
-- [ ] Alternative paths tested: cancelled, rejected, already used, ineligible → nothing granted
-- [ ] Only verified humans can claim from the Arc pool
+- [x] IDKit v4 with **Proof of Human** (minimum sufficient credential — justified in README)
+- [x] Required to earn from human-only pools (all Arc pools); not used as a login
+- [x] Backend signs requests + verifies with World v4 API; nullifier UNIQUE(action, nullifier) stops one human verifying two accounts; signal binds proof to account
+- [x] Alternative paths tested: rejected, wrong environment/action, other account's proof, duplicate human, malformed → nothing granted (5 e2e tests)
+- [x] Only verified humans get a share of Arc pools (so only they are awarded on-chain)
 - [ ] Integration debrief: time to first success, friction, missing docs, top improvement
-- [ ] Confirm IDKit works for our mobile app (else a small web step)
+- [x] IDKit `@worldcoin/idkit/expo` 4.6.0 bundles for iOS (Hermes); Verify card on Earnings + human-only pools
+- [ ] Developer Portal app + action (app_id, rp_id, signing key) and a Simulator run on the phone
 
 ### H6 — Live at ETHGlobal: Carrom Showdown 🎯 (build after H3)
 

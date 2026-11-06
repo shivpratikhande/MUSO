@@ -301,6 +301,36 @@ Tests:
 | Bob (linked his wallet after Alice was paid) | 0.67 USDC ([claim tx](https://testnet.arcscan.app/tx/0xdf5f7aa0409fe76e60afd89cf23d1486e016255bd7d7d05ae7fd62f2db2cdd3b)) |
 | Gas paid by creators | none |
 
+## World ID — one real human per reward account (ETHGlobal track)
+
+Watch-time rewards attract farming: one person with many accounts watching their own videos. MUSO uses **World ID Proof of Human** (IDKit v4, World ID 4.0) so that **one human can verify only one MUSO account**. Reward pools can be marked **verified humans only**, and every pool funded with USDC on Arc is one. World ID isn't used for login, and MUSO stores no personal data: only an anonymous, action-scoped **nullifier**.
+
+**Why Proof of Human:** the goal is uniqueness (one person, one earning account), not age or identity. It's the minimum credential that achieves that. Passport or document credentials would reveal more than we need.
+
+```
+ App (Expo, @worldcoin/idkit/expo)        MUSO API (apps/backend/src/modules/world-id)        World
+ "Verify with World ID" ─▶ POST /me/human/context ─▶ signRequest(signing key, action)  (key never leaves the server)
+                         ◀── app_id, action, environment, signal = user id, rp_context
+ useIDKitRequest({ preset: proofOfHuman({ signal }) }) ─▶ World App / Simulator ─▶ ZK proof
+ POST /me/human/verify { result }  ─▶ local checks: environment, action, signal_hash = hash(user id)
+                                     forward result unchanged ─▶ POST developer.world.org/api/v4/verify/{rp_id}
+                                     success + environment match
+                                     store nullifier NUMERIC(78,0), UNIQUE(action, nullifier); user.humanVerifiedAt
+ Pool standings: human-only pools give unverified creators no share (shown as "verify to earn");
+ their share goes to verified humans. On-chain Arc payouts therefore go only to verified humans.
+```
+
+- **Replay and sharing:**
+  - The signal binds each proof to the signed-in account, so a proof made for account A is rejected on account B.
+  - The nullifier's unique constraint stops one human from verifying a second account.
+  - Verifying again is a no-op.
+- **Nothing granted on failure:** a cancelled flow, a rejection by World, the wrong environment or action, a mismatched signal, or a duplicate nullifier all leave the account unverified. These cases are tested in `apps/backend/test/world-id.e2e-spec.ts`, with World's verifier faked.
+- **Configure** (`.env`):
+  - `WORLD_ID_ENABLED=true`
+  - `WORLD_ID_APP_ID`, `WORLD_ID_RP_ID`, `WORLD_ID_SIGNING_KEY` from [developer.world.org](https://developer.world.org)
+  - `WORLD_ID_ACTION` (create this action in the Portal)
+  - `WORLD_ID_ENVIRONMENT`: `staging` for the [Simulator](https://simulator.worldcoin.org) (the app copies the request link for you), `production` for a real World App
+
 ## How we used AI
 
 ETHGlobal asks teams to disclose AI usage. This project was built with an AI coding assistant (Claude, via Claude Code) working under the team's direction:

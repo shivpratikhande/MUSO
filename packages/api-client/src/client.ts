@@ -51,6 +51,8 @@ import {
   type SignInInput,
   type SignUpInput,
   type ArcLink,
+  type HumanStatus,
+  type WorldIdContext,
   type MyWallet,
 } from '@muso/shared';
 
@@ -312,6 +314,14 @@ export function createApiClient(opts: ApiClientOptions) {
       setPricing: (postId: string, body: PricingInput) =>
         request<PostDto>('PATCH', `/posts/${postId}/pricing`, { body }),
       download: (postId: string) => request<{ url: string }>('GET', `/posts/${postId}/download`),
+    },
+    human: {
+      status: () => request<HumanStatus>('GET', '/me/human'),
+      /** Server-signed IDKit request context (World ID). */
+      context: () => request<WorldIdContext>('POST', '/me/human/context'),
+      /** Forward the IDKit result unchanged; the server verifies it with World. */
+      verify: (result: unknown) =>
+        request<HumanStatus>('POST', '/me/human/verify', { body: { result } }),
     },
     arc: {
       wallet: () => request<MyWallet>('GET', '/me/wallet'),

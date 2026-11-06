@@ -344,6 +344,7 @@ describe('Arc on-chain reward payouts (e2e)', () => {
         status: 'ACTIVE',
         currency: 'USD',
         budgetMinor: 2_500, // $25.00 (sub-cent dust stays with the sponsor)
+        humanOnly: true, // on-chain USDC goes only to World ID-verified humans
         arc: { campaignId: id, sponsor: sponsor.address.toLowerCase(), chainId: 5042002 },
       });
       await fund(org, id).expect(409);
@@ -371,6 +372,11 @@ describe('Arc on-chain reward payouts (e2e)', () => {
     it('splits by watch time, awards and relays claims, and pays late wallets too', async () => {
       const org = await makeOrganizer(app, prisma);
       const [alice, bob] = await Promise.all([1, 2].map(() => makeUser(app, prisma)));
+      // Arc pools pay only World ID-verified humans (the World ID suite covers verification).
+      await prisma.user.updateMany({
+        where: { id: { in: [alice!.id, bob!.id] } },
+        data: { humanVerifiedAt: new Date() },
+      });
       const viewers = await Promise.all([1, 2].map(() => makeUser(app, prisma)));
       const e = await liveEvent(org);
       const poolEnd = new Date(Date.now() + 5 * 60_000);
@@ -433,6 +439,7 @@ describe('Arc on-chain reward payouts (e2e)', () => {
     it('skips creators whose wallet arrives after the award window closes', async () => {
       const org = await makeOrganizer(app, prisma);
       const carol = await makeUser(app, prisma);
+      await prisma.user.update({ where: { id: carol.id }, data: { humanVerifiedAt: new Date() } });
       const viewers = await Promise.all([1, 2].map(() => makeUser(app, prisma)));
       const e = await liveEvent(org);
       const poolEnd = new Date(Date.now() + 5 * 60_000);

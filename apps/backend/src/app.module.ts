@@ -20,6 +20,7 @@ import { PaymentsModule } from './modules/payments/payments.module.js';
 import { ContentModule } from './modules/posts/content.module.js';
 import { ReportsModule } from './modules/reports/reports.module.js';
 import { RewardsModule } from './modules/rewards/rewards.module.js';
+import { WorldIdModule } from './modules/world-id/world-id.module.js';
 import { X402Module } from './modules/x402/x402.module.js';
 import { UploadsModule } from './modules/uploads/uploads.module.js';
 import { RedisModule } from './redis/redis.module.js';
@@ -83,6 +84,7 @@ import { StorageModule } from './storage/storage.module.js';
     PaymentsModule,
     RewardsModule,
     ArcModule,
+    WorldIdModule,
     X402Module,
   ],
   providers: [

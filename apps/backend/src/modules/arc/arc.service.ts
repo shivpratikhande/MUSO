@@ -172,6 +172,8 @@ export class ArcService {
           budgetMinor: Number(cents),
           arcCampaignId: campaignId,
           arcSponsor: c.sponsor.toLowerCase(),
+          // On-chain USDC goes only to verified humans when World ID is on.
+          humanOnly: this.config.get('WORLD_ID_ENABLED', { infer: true }) ? true : undefined,
         },
       });
       if (r.count !== 1) throw conflict('This pool is already funded or closed');

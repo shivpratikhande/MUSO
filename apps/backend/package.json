@@ -27,6 +27,7 @@
     "@nestjs/swagger": "^12.1.0",
     "@nestjs/throttler": "^6.7.1",
     "@node-rs/argon2": "^2.2.2",
+    "@worldcoin/idkit-core": "4.6.0",
     "@x402/core": "~2.30.0",
     "@x402/fetch": "~2.30.0",
     "@x402/hedera": "~2.30.0",

@@ -16,6 +16,7 @@ import {
   Pill,
 } from '@/components/ui';
 import { openWalletPage } from '@/features/arc/walletPage';
+import { VerifyHumanCard } from '@/features/world-id/VerifyHumanCard';
 import { newIdempotencyKey, runCheckout } from '@/features/money/checkout';
 import { api, errorMessage } from '@/services/api';
 import { useTheme } from '@/theme';
@@ -185,6 +186,10 @@ export default function PoolScreen() {
             );
           })}
         </Card>
+      ) : null}
+
+      {p.humanOnly ? (
+        <VerifyHumanCard reason="This pool pays verified humans only, so one person can’t farm it with many accounts." />
       ) : null}
 
       <Card>

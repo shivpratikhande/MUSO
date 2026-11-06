@@ -9,6 +9,8 @@ export interface Standing {
   qualifiedMs: number;
   qualifiedViewers: number;
   eligible: boolean;
+  /** Human-only pool and the creator isn't World ID–verified yet (earns nothing). */
+  needsHuman: boolean;
   shareMinor: number;
   capped: boolean;
 }
@@ -19,6 +21,7 @@ export interface Standing {
  *  - per (video, viewer): credited time inside the pool window, capped at the video length
  *  - sessions that were flagged or never qualified are excluded entirely
  *  - videos below the minimum number of distinct qualified viewers earn nothing
+ *  - in human-only pools, creators who aren't World ID–verified earn nothing
  * Then splits the budget proportionally with the per-video cap (exact paise).
  */
 @Injectable()
@@ -31,11 +34,19 @@ export class RewardStandings {
   ): Promise<{ standings: Standing[]; unallocated: number }> {
     const end = until < pool.endsAt ? until : pool.endsAt;
     const rows = await this.prisma.$queryRaw<
-      { post_id: string; author_id: string; qualified_ms: bigint; viewers: number }[]
+      {
+        post_id: string;
+        author_id: string;
+        human: boolean;
+        qualified_ms: bigint;
+        viewers: number;
+      }[]
     >(Prisma.sql`
       WITH eligible AS (
-        SELECT p.id AS post_id, p.author_id, COALESCE(m.duration_ms, 0) AS duration_ms
+        SELECT p.id AS post_id, p.author_id, (u.human_verified_at IS NOT NULL) AS human,
+               COALESCE(m.duration_ms, 0) AS duration_ms
         FROM posts p JOIN post_media m ON m.post_id = p.id AND m.position = 0
+        JOIN users u ON u.id = p.author_id
         WHERE p.event_id = ${pool.eventId}::uuid AND p.type = 'VIDEO' AND p.status = 'PUBLISHED'
           AND p.moderation_status = 'VISIBLE' AND p.deleted_at IS NULL AND p.author_id <> ${pool.creatorId}::uuid
       ),
@@ -49,14 +60,16 @@ export class RewardStandings {
           AND s.viewer_id <> e.author_id
         GROUP BY s.post_id, s.viewer_id
       )
-      SELECT e.post_id, e.author_id, COALESCE(SUM(pv.ms), 0)::bigint AS qualified_ms, COUNT(pv.viewer_id)::int AS viewers
+      SELECT e.post_id, e.author_id, e.human, COALESCE(SUM(pv.ms), 0)::bigint AS qualified_ms, COUNT(pv.viewer_id)::int AS viewers
       FROM eligible e LEFT JOIN per_viewer pv ON pv.post_id = e.post_id AND pv.ms > 0
-      GROUP BY e.post_id, e.author_id`);
+      GROUP BY e.post_id, e.author_id, e.human`);
 
     const items = rows.map((r) => {
       const qualifiedMs = Number(r.qualified_ms);
-      const eligible = r.viewers >= pool.minQualifiedViewers && qualifiedMs > 0;
+      const needsHuman = pool.humanOnly && !r.human;
+      const eligible = r.viewers >= pool.minQualifiedViewers && qualifiedMs > 0 && !needsHuman;
       return {
+        needsHuman,
         postId: r.post_id,
         creatorId: r.author_id,
         qualifiedMs,

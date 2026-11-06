@@ -104,6 +104,29 @@ export const EnvSchema = z.object({
     .string()
     .regex(/^0x[0-9a-fA-F]{64}$/, '0x-prefixed 32-byte hex key')
     .optional(),
+  /** World ID (IDKit v4): one verified human per account, required to earn from human-only pools. */
+  WORLD_ID_ENABLED: z
+    .enum(['true', 'false'])
+    .default('false')
+    .transform((v) => v === 'true'),
+  /** From the World Developer Portal (developer.world.org). */
+  WORLD_ID_APP_ID: z
+    .string()
+    .regex(/^app_[A-Za-z0-9_]+$/, 'app_… id')
+    .optional(),
+  WORLD_ID_RP_ID: z
+    .string()
+    .regex(/^rp_[A-Za-z0-9_]+$/, 'rp_… id')
+    .optional(),
+  /** RP signing key (secret, server only). Signs each proof request. */
+  WORLD_ID_SIGNING_KEY: z
+    .string()
+    .regex(/^(0x)?[0-9a-fA-F]{64}$/, '32-byte hex key')
+    .optional(),
+  WORLD_ID_ACTION: z.string().min(1).max(100).default('muso-creator-rewards'),
+  /** `staging` works with the World ID Simulator; real phones need `production`. */
+  WORLD_ID_ENVIRONMENT: z.enum(['production', 'staging']).default('staging'),
+  WORLD_ID_VERIFY_URL: z.url().default('https://developer.world.org/api/v4/verify'),
   /** Run payment reconciliation + earnings release timers in this process. */
   PAYMENTS_WORKER_ENABLED: z
     .enum(['true', 'false'])
@@ -126,6 +149,14 @@ function checkEnv(env: Env): string[] {
   if (env.ARC_ENABLED && (!env.ARC_REWARD_CAMPAIGNS_ADDRESS || !env.ARC_ALLOCATOR_PRIVATE_KEY)) {
     problems.push(
       '  - ARC_REWARD_CAMPAIGNS_ADDRESS, ARC_ALLOCATOR_PRIVATE_KEY: required when ARC_ENABLED=true',
+    );
+  }
+  if (
+    env.WORLD_ID_ENABLED &&
+    (!env.WORLD_ID_APP_ID || !env.WORLD_ID_RP_ID || !env.WORLD_ID_SIGNING_KEY)
+  ) {
+    problems.push(
+      '  - WORLD_ID_APP_ID, WORLD_ID_RP_ID, WORLD_ID_SIGNING_KEY: required when WORLD_ID_ENABLED=true',
     );
   }
   if (env.NODE_ENV === 'production' && env.PAYMENTS_PROVIDER === 'sandbox') {
