@@ -53,9 +53,11 @@ let T = new URLSearchParams(location.search).get('t') || '';
 const $ = (id) => document.getElementById(id);
 let info, account;
 
+// Free tunnels (ngrok) answer browser requests with a warning page unless told to skip it.
+const H = { 'ngrok-skip-browser-warning': '1' };
 async function api(method, path, body) {
   const r = await fetch('/v1/arc/' + path + '?t=' + encodeURIComponent(T), {
-    method, headers: body ? { 'content-type': 'application/json' } : {}, body: body ? JSON.stringify(body) : undefined,
+    method, headers: body ? { ...H, 'content-type': 'application/json' } : H, body: body ? JSON.stringify(body) : undefined,
   });
   const j = await r.json().catch(() => ({}));
   if (!r.ok) throw new Error((j.error && j.error.message) || j.message || 'Something went wrong');
@@ -74,11 +76,11 @@ const txLink = (h) => '<a href="' + info.chain.explorerUrl + '/tx/' + h + '" tar
 function steps(list, current) {
   $('steps').innerHTML = list.map((s, i) => '<li class="' + (i < current ? 'done' : i === current ? 'now' : '') + '">' + s + '</li>').join('');
 }
-const PAGE_VERSION = '5';
+const PAGE_VERSION = '6';
 function report(m) {
   // Lets MUSO see wallet errors it can't reproduce (no keys or personal data, just the message).
   const ua = navigator.userAgent.slice(0, 160);
-  fetch('/v1/arc/client-log', { method: 'POST', headers: { 'content-type': 'application/json' },
+  fetch('/v1/arc/client-log', { method: 'POST', headers: { ...H, 'content-type': 'application/json' },
     body: JSON.stringify({ v: PAGE_VERSION, m: String(m).slice(0, 600), ua, acct: account || null }) }).catch(() => {});
 }
 function fail(e) {
@@ -213,7 +215,7 @@ async function runPick() {
   const tk = await api('POST', 'session/pick-ticket', { address: account });
   const amount = BigInt(tk.stakeMicro);
   const bal = await call(tk.usdc, SEL.balanceOf + pad(account));
-  if (bal < amount) throw new Error('This wallet has ' + (Number(bal) / 1e6).toFixed(2) + ' USDC on Arc Testnet; you need ' + p.stakeUsdc + ' plus a little for gas.\nGet test USDC at https://faucet.circle.com (choose Arc Testnet).');
+  if (bal < amount) throw new Error('This wallet has ' + (Number(bal) / 1e6).toFixed(2) + ' USDC on Arc Testnet; you need ' + p.stakeUsdc + ' plus a little for gas.\\nGet test USDC at https://faucet.circle.com (choose Arc Testnet).');
   steps(S, 3);
   const allowance = await call(tk.usdc, SEL.allowance + pad(account) + pad(tk.contract));
   if (allowance < amount) await send(tk.usdc, SEL.approve + pad(tk.contract) + pad(amount.toString(16)));
@@ -246,7 +248,7 @@ async function resolveToken() {
   let code = m ? m[1] : await askCode();
   for (;;) {
     const clean = String(code).toUpperCase().replace(/[^A-Z0-9]/g, '');
-    const r = await fetch('/v1/arc/code/' + encodeURIComponent(clean));
+    const r = await fetch('/v1/arc/code/' + encodeURIComponent(clean), { headers: H });
     const j = await r.json().catch(() => ({}));
     if (r.ok && j.data) { T = j.data.t; $('form').innerHTML = ''; return; }
     code = await askCode(r.status === 429 ? 'Too many tries. Wait a minute.' : 'That code didn’t work. Check it in the MUSO app (codes expire after 30 minutes).');
