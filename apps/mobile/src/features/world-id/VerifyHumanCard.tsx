@@ -5,6 +5,7 @@ import * as Clipboard from 'expo-clipboard';
 import * as Linking from 'expo-linking';
 import { useEffect, useRef, useState } from 'react';
 import { View } from 'react-native';
+import QRCode from 'react-native-qrcode-svg';
 import { AppText, Button, Card, FormError } from '@/components/ui';
 import { api, errorMessage } from '@/services/api';
 import { useTheme } from '@/theme';
@@ -119,9 +120,8 @@ function HumanFlow({
   useEffect(() => {
     if (!flow.connectorURI || opened.current) return;
     opened.current = true;
-    // Copy the link too, for the web Simulator fallback in staging.
-    if (ctx.environment === 'staging')
-      void Clipboard.setStringAsync(flow.connectorURI).then(() => setCopied(true));
+    // Staging: stay here and show the QR code (scan it with the Simulator on a laptop).
+    if (ctx.environment === 'staging') return;
     Linking.openURL(flow.connectorURI).catch(() =>
       onError('Could not open World App. Is it installed?'),
     );
@@ -149,8 +149,22 @@ function HumanFlow({
           ? 'Checking your proof with World…'
           : flow.isAwaitingUserConfirmation
             ? 'Approve the request in World App…'
-            : 'Approve in World App, then come back here.'}
+            : ctx.environment === 'staging'
+              ? 'Waiting for the Simulator…'
+              : 'Approve in World App, then come back here.'}
       </AppText>
+      {flow.connectorURI && !flow.result && ctx.environment === 'staging' ? (
+        // A phone can't scan its own screen: open simulator.worldcoin.org on a laptop and scan this.
+        <View style={{ alignItems: 'center', gap: 6, paddingVertical: 8 }}>
+          <View style={{ padding: 10, backgroundColor: '#fff', borderRadius: 8 }}>
+            <QRCode value={flow.connectorURI} size={200} />
+          </View>
+          <AppText variant="caption" tone="muted" style={{ textAlign: 'center' }}>
+            Test mode: on your laptop open simulator.worldcoin.org, scan this code and approve. This
+            screen updates by itself.
+          </AppText>
+        </View>
+      ) : null}
       {flow.connectorURI && !flow.result ? (
         <View style={{ flexDirection: 'row', gap: 8 }}>
           <Button
