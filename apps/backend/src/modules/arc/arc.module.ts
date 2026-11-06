@@ -5,13 +5,16 @@ import { RewardsModule } from '../rewards/rewards.module.js';
 import { ARC_CHAIN, ViemArcChain } from './arc.chain.js';
 import { ArcController } from './arc.controller.js';
 import { ArcService } from './arc.service.js';
+import { ArcSessionController } from './arc.session.controller.js';
+import { ArcSessionService } from './arc.session.js';
 import { ArcWorker } from './arc.worker.js';
 
 @Module({
   imports: [RewardsModule],
-  controllers: [ArcController],
+  controllers: [ArcController, ArcSessionController],
   providers: [
     ArcService,
+    ArcSessionService,
     ArcWorker,
     {
       provide: ARC_CHAIN,

@@ -83,3 +83,17 @@ export interface ArcPayoutDto {
   claimTxUrl: string | null;
   note: string | null;
 }
+
+/** Return deep link for the browser wallet page (app schemes only: no open redirects). */
+export const ArcLinkRequestSchema = z.object({
+  returnUrl: z
+    .string()
+    .max(500)
+    .regex(/^(muso|exp|exps):\/\//, 'Invalid return URL'),
+});
+export type ArcLinkRequest = z.infer<typeof ArcLinkRequestSchema>;
+
+/** A short-lived signed link to MUSO's wallet page (opened in the browser / a wallet app). */
+export interface ArcLink {
+  url: string;
+}

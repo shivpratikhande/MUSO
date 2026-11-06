@@ -14,9 +14,12 @@ import {
 import { ApiBearerAuth, ApiTags } from '@nestjs/swagger';
 import { Throttle } from '@nestjs/throttler';
 import {
+  ArcLinkRequestSchema,
   LinkArcCampaignSchema,
   LinkWalletSchema,
   WalletChallengeQuerySchema,
+  type ArcLink,
+  type ArcLinkRequest,
   type LinkArcCampaignInput,
   type LinkWalletInput,
   type MyWallet,
@@ -27,6 +30,7 @@ import { ZodValidationPipe } from '../../common/pipes/zod-validation.pipe.js';
 import type { RequestUser } from '../auth/auth.types.js';
 import { CurrentUser } from '../auth/decorators/current-user.decorator.js';
 import { ArcService } from './arc.service.js';
+import { ArcSessionService } from './arc.session.js';
 
 const uuid = new ParseUUIDPipe({ errorHttpStatusCode: HttpStatus.NOT_FOUND });
 
@@ -34,7 +38,31 @@ const uuid = new ParseUUIDPipe({ errorHttpStatusCode: HttpStatus.NOT_FOUND });
 @ApiBearerAuth()
 @Controller()
 export class ArcController {
-  constructor(private readonly arc: ArcService) {}
+  constructor(
+    private readonly arc: ArcService,
+    private readonly sessions: ArcSessionService,
+  ) {}
+
+  /** Signed link to MUSO's wallet page, where the creator connects and verifies a wallet. */
+  @Post('me/wallet/connect-link')
+  @HttpCode(HttpStatus.OK)
+  walletLink(
+    @CurrentUser() u: RequestUser,
+    @Body(new ZodValidationPipe(ArcLinkRequestSchema)) body: ArcLinkRequest,
+  ): Promise<ArcLink> {
+    return this.sessions.createLink(u, 'wallet', body.returnUrl);
+  }
+
+  /** Signed link to MUSO's wallet page, where the organizer funds this pool with USDC on Arc. */
+  @Post('reward-pools/:id/arc/fund-link')
+  @HttpCode(HttpStatus.OK)
+  fundLink(
+    @Param('id', uuid) id: string,
+    @CurrentUser() u: RequestUser,
+    @Body(new ZodValidationPipe(ArcLinkRequestSchema)) body: ArcLinkRequest,
+  ): Promise<ArcLink> {
+    return this.sessions.createLink(u, 'fund', body.returnUrl, id);
+  }
 
   @Get('me/wallet')
   wallet(@CurrentUser() u: RequestUser): Promise<MyWallet> {

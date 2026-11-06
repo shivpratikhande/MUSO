@@ -1,0 +1,73 @@
+import { Body, Controller, Get, HttpCode, HttpStatus, Post, Put, Query, Res } from '@nestjs/common';
+import { ApiExcludeController } from '@nestjs/swagger';
+import { Throttle } from '@nestjs/throttler';
+import {
+  LinkArcCampaignSchema,
+  LinkWalletSchema,
+  WalletChallengeQuerySchema,
+  type LinkArcCampaignInput,
+  type LinkWalletInput,
+  type MyWallet,
+  type WalletChallenge,
+} from '@muso/shared';
+import type { Response } from 'express';
+import { randomBytes } from 'node:crypto';
+import { ZodValidationPipe } from '../../common/pipes/zod-validation.pipe.js';
+import { Public } from '../auth/decorators/public.decorator.js';
+import { renderConnectPage } from './arc.page.js';
+import { ArcSessionService, type ArcSessionInfo } from './arc.session.js';
+
+/** MUSO's browser wallet page and the JSON it uses. Authorized by the signed `t` link token. */
+@ApiExcludeController()
+@Public()
+@Throttle({ default: { limit: 30, ttl: 60_000 } })
+@Controller('arc')
+export class ArcSessionController {
+  constructor(private readonly sessions: ArcSessionService) {}
+
+  @Get('connect')
+  page(@Res() res: Response): void {
+    const nonce = randomBytes(16).toString('base64');
+    res
+      .status(200)
+      .setHeader(
+        'Content-Security-Policy',
+        `default-src 'none'; script-src 'nonce-${nonce}'; style-src 'unsafe-inline'; connect-src 'self'; img-src data:; base-uri 'none'; form-action 'none'`,
+      )
+      .setHeader('Cache-Control', 'no-store')
+      .setHeader('Referrer-Policy', 'no-referrer')
+      .type('html')
+      .send(renderConnectPage(nonce));
+  }
+
+  @Get('session')
+  info(@Query('t') t: string | undefined): Promise<ArcSessionInfo> {
+    return this.sessions.info(t);
+  }
+
+  @Post('session/challenge')
+  @HttpCode(HttpStatus.OK)
+  challenge(
+    @Query('t') t: string | undefined,
+    @Body(new ZodValidationPipe(WalletChallengeQuerySchema)) body: { address: string },
+  ): Promise<WalletChallenge> {
+    return this.sessions.challenge(t, body.address);
+  }
+
+  @Put('session/wallet')
+  link(
+    @Query('t') t: string | undefined,
+    @Body(new ZodValidationPipe(LinkWalletSchema)) body: LinkWalletInput,
+  ): Promise<MyWallet> {
+    return this.sessions.linkWallet(t, body);
+  }
+
+  @Post('session/fund')
+  @HttpCode(HttpStatus.OK)
+  fund(
+    @Query('t') t: string | undefined,
+    @Body(new ZodValidationPipe(LinkArcCampaignSchema)) body: LinkArcCampaignInput,
+  ): Promise<{ poolId: string }> {
+    return this.sessions.fund(t, body.campaignId);
+  }
+}

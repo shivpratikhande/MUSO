@@ -1,8 +1,9 @@
-import { formatMoney, type RewardPoolStatusDto } from '@muso/shared';
+import { formatMoney, type ArcPayoutStatusDto, type RewardPoolStatusDto } from '@muso/shared';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { Image } from 'expo-image';
-import { router, useLocalSearchParams } from 'expo-router';
-import { useState } from 'react';
+import * as Linking from 'expo-linking';
+import { router, useFocusEffect, useLocalSearchParams } from 'expo-router';
+import { useCallback, useState } from 'react';
 import { Alert, Pressable, RefreshControl, ScrollView, View } from 'react-native';
 import {
   AppText,
@@ -14,6 +15,7 @@ import {
   LoadingState,
   Pill,
 } from '@/components/ui';
+import { openWalletPage } from '@/features/arc/walletPage';
 import { newIdempotencyKey, runCheckout } from '@/features/money/checkout';
 import { api, errorMessage } from '@/services/api';
 import { useTheme } from '@/theme';
@@ -26,6 +28,14 @@ const STATUS: Record<RewardPoolStatusDto, string> = {
   DISTRIBUTED: 'Distributed',
   CANCELLED: 'Cancelled',
 };
+const PAYOUT: Record<ArcPayoutStatusDto, string> = {
+  WAITING_WALLET: 'Waiting for the creator to link a wallet',
+  AWARDED: 'Awarded on-chain · sending',
+  CLAIMED: 'Paid in USDC',
+  SKIPPED: 'Not paid on-chain',
+};
+const usdc = (micro: string) => `${(Number(micro) / 1e6).toFixed(2)} USDC`;
+const short = (a: string) => `${a.slice(0, 6)}…${a.slice(-4)}`;
 const fmtDate = (iso: string) =>
   new Date(iso).toLocaleString(undefined, {
     day: 'numeric',
@@ -52,6 +62,18 @@ export default function PoolScreen() {
         setFundError(p.failureReason ?? 'Funding didn’t go through. No money was taken.');
       void qc.invalidateQueries({ queryKey: ['pools'] });
     },
+    onError: (e) => setFundError(errorMessage(e)),
+  });
+  // Funding on Arc finishes in the wallet page: refresh when the user comes back.
+  const { refetch } = q;
+  useFocusEffect(
+    useCallback(() => {
+      void refetch();
+    }, [refetch]),
+  );
+  const fundArc = useMutation({
+    mutationFn: () => openWalletPage((returnUrl) => api.arc.fundLink(id, returnUrl)),
+    onSuccess: () => void qc.invalidateQueries({ queryKey: ['pools'] }),
     onError: (e) => setFundError(errorMessage(e)),
   });
   const cancel = useMutation({
@@ -99,16 +121,71 @@ export default function PoolScreen() {
           Reward pool
         </AppText>
         <AppText variant="hero" tone="inverse">
-          {formatMoney(p.budgetMinor)}
+          {formatMoney(p.budgetMinor, p.currency)}
         </AppText>
         <AppText variant="caption" tone="inverse">
           {p.status === 'DISTRIBUTED'
-            ? `${formatMoney(p.allocatedMinor)} paid to creators${p.unallocatedMinor ? ` · ${formatMoney(p.unallocatedMinor)} unallocated (returned to the funder)` : ''}`
+            ? `${formatMoney(p.allocatedMinor, p.currency)} paid to creators${p.unallocatedMinor ? ` · ${formatMoney(p.unallocatedMinor, p.currency)} unallocated (returned to the funder)` : ''}`
             : q.data.estimated
-              ? `${formatMoney(p.allocatedMinor)} currently earned by creators (estimate, final when the pool ends)`
+              ? `${formatMoney(p.allocatedMinor, p.currency)} currently earned by creators (estimate, final when the pool ends)`
               : 'Shared among creators by qualified watch time.'}
         </AppText>
       </Card>
+
+      {p.arc ? (
+        <Card>
+          <AppText variant="label" tone="muted">
+            Funded on Arc · USDC
+          </AppText>
+          <AppText variant="caption">
+            Campaign #{p.arc.campaignId} holds the money in the RewardCampaigns contract, not at
+            MUSO. When the pool ends, creators are paid in USDC to their linked wallet, and MUSO
+            pays the network fees.
+          </AppText>
+          <AppText variant="caption" tone="muted">
+            Sponsor wallet {short(p.arc.sponsor)}
+          </AppText>
+          <Button
+            size="sm"
+            variant="ghost"
+            label="View contract on Arc"
+            onPress={() => void Linking.openURL(p.arc!.contractUrl)}
+          />
+        </Card>
+      ) : null}
+
+      {q.data.arcPayouts.length ? (
+        <Card>
+          <AppText variant="label" tone="muted">
+            On-chain payouts
+          </AppText>
+          {q.data.arcPayouts.map((o) => {
+            const who = q.data.leaderboard.find((r) => r.creator.id === o.creatorId)?.creator;
+            const tx = o.claimTxUrl ?? o.awardTxUrl;
+            return (
+              <Pressable
+                key={o.creatorId}
+                disabled={!tx}
+                accessibilityRole={tx ? 'link' : undefined}
+                onPress={() => tx && void Linking.openURL(tx)}
+                style={{ flexDirection: 'row', alignItems: 'center', gap: t.space.md }}
+              >
+                <View style={{ flex: 1 }}>
+                  <AppText variant="bodyStrong" numberOfLines={1}>
+                    {who?.displayName ?? who?.username ?? 'Creator'}
+                  </AppText>
+                  <AppText variant="caption" tone="muted">
+                    {PAYOUT[o.status]}
+                    {o.note ? ` · ${o.note}` : ''}
+                    {tx ? ' · view transaction ↗' : ''}
+                  </AppText>
+                </View>
+                <AppText variant="bodyStrong">{usdc(o.amountMicro)}</AppText>
+              </Pressable>
+            );
+          })}
+        </Card>
+      ) : null}
 
       <Card>
         <AppText variant="label" tone="muted">
@@ -138,11 +215,20 @@ export default function PoolScreen() {
         <View style={{ gap: t.space.sm }}>
           <FormError message={fundError} />
           <Button
-            label={`Fund ${formatMoney(p.budgetMinor)}`}
+            label={`Fund ${formatMoney(p.budgetMinor, p.currency)}`}
             loading={fund.isPending}
             onPress={() => {
               setFundError(null);
               fund.mutate();
+            }}
+          />
+          <Button
+            label="Fund with USDC on Arc"
+            variant="secondary"
+            loading={fundArc.isPending}
+            onPress={() => {
+              setFundError(null);
+              fundArc.mutate();
             }}
           />
           <AppText variant="caption" tone="muted">
@@ -222,7 +308,7 @@ export default function PoolScreen() {
                   {r.capped ? ' · capped' : ''}
                 </AppText>
               </View>
-              <AppText variant="bodyStrong">{formatMoney(r.shareMinor)}</AppText>
+              <AppText variant="bodyStrong">{formatMoney(r.shareMinor, p.currency)}</AppText>
             </Pressable>
           ))
         )}

@@ -10,7 +10,8 @@
     "lint": "oxlint src/ test/",
     "typecheck": "tsc --noEmit -p tsconfig.json",
     "test": "vitest run",
-    "test:e2e": "vitest run --config ./vitest.config.e2e.ts"
+    "test:e2e": "vitest run --config ./vitest.config.e2e.ts",
+    "arc:demo": "tsx scripts/arc-demo.ts"
   },
   "dependencies": {
     "@aws-sdk/client-s3": "^3.1163.0",

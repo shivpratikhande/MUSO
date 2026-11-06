@@ -436,4 +436,100 @@ describe('Arc on-chain reward payouts (e2e)', () => {
       expect(p).toMatchObject({ status: 'SKIPPED' });
     });
   });
+
+  describe('browser wallet page (signed links)', () => {
+    const RETURN = 'muso://wallet/return';
+    const tokenOf = (url: string) => new URL(url).searchParams.get('t')!;
+
+    it('serves the page and links a wallet with only the signed link', async () => {
+      const user = await makeUser(app, prisma);
+      await http()
+        .post('/v1/me/wallet/connect-link')
+        .set(user.auth)
+        .send({ returnUrl: 'https://evil.example' })
+        .expect(400); // app schemes only
+      const link = await http()
+        .post('/v1/me/wallet/connect-link')
+        .set(user.auth)
+        .send({ returnUrl: RETURN })
+        .expect(200);
+      const t = tokenOf(link.body.data.url);
+      const page = await http().get('/v1/arc/connect').query({ t }).expect(200);
+      expect(page.headers['content-security-policy']).toMatch(/script-src 'nonce-/);
+
+      const info = await http().get('/v1/arc/session').query({ t }).expect(200);
+      expect(info.body.data).toMatchObject({
+        purpose: 'wallet',
+        returnUrl: RETURN,
+        allocator: chain.allocator,
+        chain: { id: 5042002 },
+        linkedWallet: null,
+        pool: null,
+      });
+      await http()
+        .get('/v1/arc/session')
+        .query({ t: `${t}x` })
+        .expect(403); // tampered
+
+      const acct = privateKeyToAccount(generatePrivateKey());
+      const ch = await http()
+        .post('/v1/arc/session/challenge')
+        .query({ t })
+        .send({ address: acct.address })
+        .expect(200);
+      expect(ch.body.data.message).toContain(`Account: ${user.id}`);
+      await http()
+        .put('/v1/arc/session/wallet')
+        .query({ t })
+        .send({
+          address: acct.address,
+          issuedAt: ch.body.data.issuedAt,
+          signature: await acct.signMessage({ message: ch.body.data.message }),
+        })
+        .expect(200);
+      const me = await http().get('/v1/me/wallet').set(user.auth).expect(200);
+      expect(me.body.data.address).toBe(acct.address);
+      // A wallet-link token can't fund pools.
+      await http().post('/v1/arc/session/fund').query({ t }).send({ campaignId: 1 }).expect(403);
+    });
+
+    it('funds a pool through the page once the campaign exists on-chain', async () => {
+      const org = await makeOrganizer(app, prisma);
+      const other = await makeOrganizer(app, prisma);
+      const e = await liveEvent(org);
+      const poolEnd = new Date(Date.now() + HOUR);
+      const pool = await createPool(org, e.id, poolEnd);
+      await http()
+        .post(`/v1/reward-pools/${pool.id}/arc/fund-link`)
+        .set(other.auth)
+        .send({ returnUrl: RETURN })
+        .expect(403);
+      const link = await http()
+        .post(`/v1/reward-pools/${pool.id}/arc/fund-link`)
+        .set(org.auth)
+        .send({ returnUrl: RETURN })
+        .expect(200);
+      const t = tokenOf(link.body.data.url);
+      const info = (await http().get('/v1/arc/session').query({ t }).expect(200)).body.data;
+      expect(info.pool).toMatchObject({
+        id: pool.id,
+        endsAt: Math.floor(poolEnd.getTime() / 1000),
+        suggestedUsdc: 12, // ₹1,000 at ₹84/$
+      });
+      // (The page signs the wallet link, then approve + createCampaign happen in the wallet.)
+      const sponsor = await linkWallet(org);
+      const id = chain.create({
+        sponsor: sponsor.address,
+        endsAt: info.pool.endsAt,
+        budget: 12n * U,
+      });
+      await http().post('/v1/arc/session/fund').query({ t }).send({ campaignId: id }).expect(200);
+      const detail = await http().get(`/v1/reward-pools/${pool.id}`).set(org.auth).expect(200);
+      expect(detail.body.data).toMatchObject({
+        status: 'ACTIVE',
+        budgetMinor: 1_200,
+        arc: { campaignId: id },
+      });
+    });
+  });
 });

@@ -266,7 +266,8 @@ A UI that exists but isn't wired to the backend is `[~]`, never `[x]`.
 - [x] Final Studio source in `packages/contracts/studio/`; runtime bytecode matches the live contract
 - [x] Backend: pool funded by linking an on-chain campaign (checked on-chain: MUSO allocator, sponsor = organizer's verified wallet, timing) → Milestone 5 watch-time split → per-creator USDC → `awardMany` → relayed `claimFor` (worker, idempotent, late wallets paid within the award window)
 - [x] Creator wallet linking API with signature proof (EOA + smart wallets via ERC-1271/6492)
-- [ ] App: link-wallet screen + Arc funding/payout status on the pool screen
+- [x] App: Earnings → link USDC payout wallet; pool → "Fund with USDC on Arc" + on-chain payouts list (opens MUSO's wallet page in MetaMask / Coinbase Wallet / browser via a signed short-lived link)
+- [x] Live end to end on Arc testnet through MUSO: page-funded campaign #2 → watch time → awardMany → relayed claimFor (Alice 1.33, Bob 0.67 USDC, late wallet paid) — `pnpm --filter @muso/backend arc:demo`
 - [ ] Architecture diagram, docs of core functions + Circle tools in README
 - [ ] Demo video showing Arc Studio
 

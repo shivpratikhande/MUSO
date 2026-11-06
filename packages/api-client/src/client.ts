@@ -50,6 +50,8 @@ import {
   type ResetPasswordInput,
   type SignInInput,
   type SignUpInput,
+  type ArcLink,
+  type MyWallet,
 } from '@muso/shared';
 
 /** Error thrown for any non-2xx response or network failure. */
@@ -310,6 +312,16 @@ export function createApiClient(opts: ApiClientOptions) {
       setPricing: (postId: string, body: PricingInput) =>
         request<PostDto>('PATCH', `/posts/${postId}/pricing`, { body }),
       download: (postId: string) => request<{ url: string }>('GET', `/posts/${postId}/download`),
+    },
+    arc: {
+      wallet: () => request<MyWallet>('GET', '/me/wallet'),
+      unlinkWallet: () => request<void>('DELETE', '/me/wallet'),
+      /** Signed link to MUSO's wallet page (connect + verify a payout wallet). */
+      walletLink: (returnUrl: string) =>
+        request<ArcLink>('POST', '/me/wallet/connect-link', { body: { returnUrl } }),
+      /** Signed link to MUSO's wallet page (fund this pool with USDC on Arc). */
+      fundLink: (poolId: string, returnUrl: string) =>
+        request<ArcLink>('POST', `/reward-pools/${poolId}/arc/fund-link`, { body: { returnUrl } }),
     },
     rewards: {
       create: (body: CreateRewardPoolInput) =>

@@ -85,6 +85,11 @@ export const EnvSchema = z.object({
   ARC_RPC_URL: z.url().default('https://rpc.testnet.arc.network'),
   ARC_CHAIN_ID: z.coerce.number().int().positive().default(5042002),
   ARC_EXPLORER_URL: z.url().default('https://testnet.arcscan.app'),
+  /** USDC's ERC-20 interface on Arc (6 decimals). */
+  ARC_USDC_ADDRESS: z
+    .string()
+    .regex(/^0x[0-9a-fA-F]{40}$/, 'EVM address')
+    .default('0x3600000000000000000000000000000000000000'),
   ARC_REWARD_CAMPAIGNS_ADDRESS: z
     .string()
     .regex(/^0x[0-9a-fA-F]{40}$/, 'EVM address')

@@ -42,3 +42,16 @@ Campaign #1: a 1 USDC budget split 60/40 between two creators, with both claims 
 | Relayed `claimFor` creator 2 → +0.400000 USDC | [0xc9165875…](https://testnet.arcscan.app/tx/0xc9165875adc2c9b33c210ede52710d330940c9f5dde0708b615342e633f96c27) |
 
 The contract's USDC balance afterwards is 0: everything the sponsor deposited reached the creators.
+
+## End to end through MUSO (Arc Testnet)
+`pnpm --filter @muso/backend arc:demo --fund-link` against the running API. The organizer funded the pool through
+MUSO's wallet page (connect → sign → approve → `createCampaign`) as **campaign #2** (2 USDC). Viewers then
+watched with real heartbeats. When the pool ended, MUSO split it by watch time and its worker called `awardMany`,
+then relayed `claimFor`. Bob linked his wallet only after Alice had been paid, and was still paid.
+
+| Creator | Share | Claim transaction |
+|---|---|---|
+| Alice (2 videos, 24 s) | 1.33 USDC | [0x09442a77…](https://testnet.arcscan.app/tx/0x09442a7758c1297ac942c6ac66937d1ce5bb034e2335717c7509cda89fbb9d4e) |
+| Bob (1 video, 12 s, wallet linked late) | 0.67 USDC | [0xdf5f7aa0…](https://testnet.arcscan.app/tx/0xdf5f7aa0409fe76e60afd89cf23d1486e016255bd7d7d05ae7fd62f2db2cdd3b) |
+
+Creators paid no gas: their wallets held 0 USDC before and exactly their shares after.

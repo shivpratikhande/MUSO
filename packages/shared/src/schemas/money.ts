@@ -11,7 +11,7 @@ export const PRICE_PRESETS_MINOR = [2_000, 4_900, 9_900, 19_900] as const;
 
 export function formatMoney(minor: number, currency = 'INR'): string {
   const major = minor / 100;
-  const symbol = currency === 'INR' ? '₹' : `${currency} `;
+  const symbol = currency === 'INR' ? '₹' : currency === 'USD' ? '$' : `${currency} `;
   return `${symbol}${major.toLocaleString('en-IN', { minimumFractionDigits: minor % 100 ? 2 : 0, maximumFractionDigits: 2 })}`;
 }
 

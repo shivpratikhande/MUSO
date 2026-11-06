@@ -4,6 +4,7 @@ import { Image } from 'expo-image';
 import { router } from 'expo-router';
 import { Pressable, RefreshControl, ScrollView, View } from 'react-native';
 import { AppText, Card, EmptyState, ErrorState, LoadingState, Pill } from '@/components/ui';
+import { WalletCard } from '@/features/arc/WalletCard';
 import { api, errorMessage } from '@/services/api';
 import { useTheme } from '@/theme';
 
@@ -91,6 +92,8 @@ export default function EarningsScreen() {
           Payouts arrive in a later update. Only available earnings can ever be withdrawn.
         </AppText>
       </Card>
+
+      <WalletCard />
 
       <View style={{ flexDirection: 'row', gap: t.space.md }}>
         <Card style={{ flex: 1 }}>
