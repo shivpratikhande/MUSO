@@ -29,6 +29,11 @@ export const EnvSchema = z.object({
   S3_ENDPOINT: z.url().optional(),
   /** Host the *phone* uses for uploads and image URLs (LAN IP in dev, CDN in prod). */
   S3_PUBLIC_ENDPOINT: z.url(),
+  /**
+   * Public read URL of the public bucket when it differs from `<S3_PUBLIC_ENDPOINT>/<bucket>`,
+   * e.g. Cloudflare R2's `https://pub-xxxx.r2.dev` (uploads still go to S3_PUBLIC_ENDPOINT).
+   */
+  S3_PUBLIC_BASE_URL: z.url().optional(),
   S3_REGION: z.string().default('us-east-1'),
   S3_ACCESS_KEY_ID: z.string().min(1),
   S3_SECRET_ACCESS_KEY: z.string().min(1),
@@ -49,6 +54,11 @@ export const EnvSchema = z.object({
   FFPROBE_PATH: z.string().default('ffprobe'),
   /** Payment provider. `sandbox` simulates a hosted checkout (no real money) and is refused in production. */
   PAYMENTS_PROVIDER: z.enum(['sandbox']).default('sandbox'),
+  /** Demo deployments only: lets the simulated (no real money) provider run with NODE_ENV=production. */
+  ALLOW_SANDBOX_PAYMENTS_IN_PRODUCTION: z
+    .enum(['true', 'false'])
+    .default('false')
+    .transform((v) => v === 'true'),
   /** HMAC secret for signed checkout links. Generate with `openssl rand -base64 48`. */
   PAYMENTS_SIGNING_SECRET: z.string().min(32, 'must be at least 32 characters'),
   /** Base URL the phone uses to reach this API (for hosted checkout pages). */
@@ -229,7 +239,11 @@ function checkEnv(env: Env): string[] {
   if (env.ENS_ENABLED && !env.ENS_SIGNER_PRIVATE_KEY) {
     problems.push('  - ENS_SIGNER_PRIVATE_KEY: required when ENS_ENABLED=true');
   }
-  if (env.NODE_ENV === 'production' && env.PAYMENTS_PROVIDER === 'sandbox') {
+  if (
+    env.NODE_ENV === 'production' &&
+    env.PAYMENTS_PROVIDER === 'sandbox' &&
+    !env.ALLOW_SANDBOX_PAYMENTS_IN_PRODUCTION
+  ) {
     problems.push('  - PAYMENTS_PROVIDER: the sandbox provider cannot be used in production');
   }
   return problems;

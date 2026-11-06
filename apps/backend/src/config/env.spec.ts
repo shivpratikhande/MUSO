@@ -55,4 +55,13 @@ describe('validateEnv payments', () => {
       /sandbox provider cannot be used in production/,
     );
   });
+
+  it('allows it in production only with the explicit demo opt-in', () => {
+    const env = validateEnv({
+      ...base,
+      NODE_ENV: 'production',
+      ALLOW_SANDBOX_PAYMENTS_IN_PRODUCTION: 'true',
+    });
+    expect(env.PAYMENTS_PROVIDER).toBe('sandbox');
+  });
 });

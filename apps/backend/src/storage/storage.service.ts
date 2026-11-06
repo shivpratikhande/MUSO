@@ -72,7 +72,10 @@ export class StorageService implements OnModuleInit {
     this.signer = new S3Client({ ...common, endpoint: publicEndpoint });
     this.bucket = config.get('S3_BUCKET_PUBLIC', { infer: true });
     this.privateBucket = config.get('S3_BUCKET_PRIVATE', { infer: true });
-    this.publicBase = `${publicEndpoint.replace(/\/+$/, '')}/${this.bucket}`;
+    this.publicBase = (
+      config.get('S3_PUBLIC_BASE_URL', { infer: true }) ??
+      `${publicEndpoint.replace(/\/+$/, '')}/${this.bucket}`
+    ).replace(/\/+$/, '');
   }
 
   async onModuleInit(): Promise<void> {
