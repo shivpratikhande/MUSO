@@ -73,8 +73,16 @@ const txLink = (h) => '<a href="' + info.chain.explorerUrl + '/tx/' + h + '" tar
 function steps(list, current) {
   $('steps').innerHTML = list.map((s, i) => '<li class="' + (i < current ? 'done' : i === current ? 'now' : '') + '">' + s + '</li>').join('');
 }
+const PAGE_VERSION = '4';
+function report(m) {
+  // Lets MUSO see wallet errors it can't reproduce (no keys or personal data, just the message).
+  const ua = navigator.userAgent.slice(0, 160);
+  fetch('/v1/arc/client-log', { method: 'POST', headers: { 'content-type': 'application/json' },
+    body: JSON.stringify({ v: PAGE_VERSION, m: String(m).slice(0, 600), ua, acct: account || null }) }).catch(() => {});
+}
 function fail(e) {
   const m = (e && (e.shortMessage || e.message)) || String(e);
+  report((e && e.code ? '[' + e.code + '] ' : '') + m);
   $('err').textContent = /user (rejected|denied)/i.test(m) ? 'You cancelled in your wallet. Nothing was sent.' : m;
   $('err').style.display = 'block';
   $('go').disabled = false;
@@ -120,11 +128,25 @@ async function linkWallet() {
   const msg = '0x' + utf8(ch.message);
   const attempts = [[msg, ch.address], [msg, ch.address.toLowerCase()], [ch.address, msg], [ch.message, ch.address]];
   let signature = null, lastErr = null;
-  for (const params of attempts) {
-    try { signature = await eth().request({ method: 'personal_sign', params }); if (signature) break; }
-    catch (e) { lastErr = e; if (e.code === 4001 || /reject|denied|cancel/i.test(e.message || '')) throw e; }
+  const tried = [];
+  const isReject = (e) => e && (e.code === 4001 || /reject|denied|cancel/i.test(e.message || ''));
+  const attempt = async (label, method, params) => {
+    if (signature) return;
+    try { signature = await eth().request({ method, params }); }
+    catch (e) { lastErr = e; tried.push(label + ': ' + (e.message || e.code)); if (isReject(e)) throw e; }
+  };
+  for (const params of attempts) await attempt('personal_sign', 'personal_sign', params);
+  if (!signature) {
+    // MetaMask mobile can report the account as connected yet refuse to sign for it:
+    // re-grant this site's account permission, then try again.
+    try { await eth().request({ method: 'wallet_requestPermissions', params: [{ eth_accounts: {} }] }); }
+    catch (e) { tried.push('permissions: ' + (e.message || e.code)); if (isReject(e)) throw e; }
+    const again = pick(await eth().request({ method: 'eth_accounts' }).catch(() => [])) || ch.address;
+    await attempt('personal_sign after permissions', 'personal_sign', [msg, again]);
   }
-  if (!signature) throw new Error('Your wallet could not sign: ' + ((lastErr && (lastErr.message || lastErr.code)) || 'unknown error') + '\\nAccount: ' + ch.address + '\\nWallet exposes: ' + JSON.stringify(await eth().request({ method: 'eth_accounts' }).catch(() => 'n/a')) + ' on chain ' + (await eth().request({ method: 'eth_chainId' }).catch(() => '?')));
+  // Last resort: the same text as EIP-712 typed data (a different signing path in wallets).
+  await attempt('eth_signTypedData_v4', 'eth_signTypedData_v4', [ch.address, JSON.stringify(ch.typedData)]);
+  if (!signature) throw new Error('Your wallet could not sign: ' + ((lastErr && (lastErr.message || lastErr.code)) || 'unknown error') + '\\nAccount: ' + ch.address + '\\nTried: ' + tried.join(' | ') + '\\nWallet exposes: ' + JSON.stringify(await eth().request({ method: 'eth_accounts' }).catch(() => 'n/a')) + ' on chain ' + (await eth().request({ method: 'eth_chainId' }).catch(() => '?')));
   const w = await api('PUT', 'session/wallet', { address: ch.address, issuedAt: ch.issuedAt, signature });
   info.linkedWallet = w.address;
 }

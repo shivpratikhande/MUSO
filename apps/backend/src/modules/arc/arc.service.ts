@@ -3,6 +3,7 @@ import { ConfigService } from '@nestjs/config';
 import {
   WALLET_CHALLENGE_TTL_MS,
   walletLinkMessage,
+  walletLinkTypedData,
   type LinkWalletInput,
   type MyWallet,
   type RewardPoolDetail,
@@ -69,11 +70,18 @@ export class ArcService {
     this.requireChain();
     const a = getAddress(address);
     const issuedAt = new Date().toISOString();
+    const message = walletLinkMessage({
+      userId: user.id,
+      address: a,
+      chainId: this.chainId,
+      issuedAt,
+    });
     return {
       address: a,
       chainId: this.chainId,
       issuedAt,
-      message: walletLinkMessage({ userId: user.id, address: a, chainId: this.chainId, issuedAt }),
+      message,
+      typedData: walletLinkTypedData(message, this.chainId),
     };
   }
 

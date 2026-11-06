@@ -9,6 +9,7 @@ import {
   type Hex,
 } from 'viem';
 import { privateKeyToAccount } from 'viem/accounts';
+import { walletLinkTypedData } from '@muso/shared';
 import type { Env } from '../../config/env.js';
 
 /** Injection token for the Arc chain client (overridden with a fake in tests). */
@@ -39,7 +40,10 @@ export interface ArcChain {
   awardMany(id: number, participants: Address[], amounts: bigint[]): Promise<Hex>;
   /** Relays claimFor (allocator pays gas; USDC goes to the participant). Returns the tx hash. */
   claimFor(id: number, participant: Address): Promise<Hex>;
-  /** EOA or smart-wallet (ERC-1271 / ERC-6492) signature check. */
+  /**
+   * EOA or smart-wallet (ERC-1271 / ERC-6492) check of a signature over `message`, made either
+   * as a plain message (personal_sign) or as EIP-712 typed data (walletLinkTypedData).
+   */
   verifySignature(address: Address, message: string, signature: Hex): Promise<boolean>;
 }
 
@@ -57,6 +61,7 @@ export class ViemArcChain implements ArcChain {
   readonly contract: Address;
   readonly allocator: Address;
   readonly explorerUrl: string;
+  private readonly chainId: number;
   private readonly pub;
   private readonly wallet;
 
@@ -71,6 +76,7 @@ export class ViemArcChain implements ArcChain {
     this.contract = getAddress(env.ARC_REWARD_CAMPAIGNS_ADDRESS!);
     this.allocator = account.address;
     this.explorerUrl = env.ARC_EXPLORER_URL.replace(/\/$/, '');
+    this.chainId = env.ARC_CHAIN_ID;
     this.pub = createPublicClient({ chain, transport: http() });
     this.wallet = createWalletClient({ chain, account, transport: http() });
   }
@@ -132,8 +138,13 @@ export class ViemArcChain implements ArcChain {
     return this.send(await this.wallet.writeContract(request));
   }
 
-  verifySignature(address: Address, message: string, signature: Hex): Promise<boolean> {
-    return this.pub.verifyMessage({ address, message, signature });
+  async verifySignature(address: Address, message: string, signature: Hex): Promise<boolean> {
+    if (await this.pub.verifyMessage({ address, message, signature }).catch(() => false))
+      return true;
+    const { EIP712Domain: _domain, ...types } = walletLinkTypedData(message, this.chainId).types;
+    return this.pub
+      .verifyTypedData({ address, signature, ...walletLinkTypedData(message, this.chainId), types })
+      .catch(() => false);
   }
 
   private async send(hash: Hex): Promise<Hex> {

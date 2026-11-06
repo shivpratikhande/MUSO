@@ -35,6 +35,26 @@ export function walletLinkMessage(p: {
   ].join('\n');
 }
 
+/**
+ * The same text as EIP-712 typed data, for wallets whose plain-message signing fails
+ * (e.g. MetaMask mobile's in-app browser). Either signature is accepted.
+ */
+export function walletLinkTypedData(message: string, chainId: number) {
+  return {
+    domain: { name: 'MUSO', version: '1', chainId },
+    types: {
+      EIP712Domain: [
+        { name: 'name', type: 'string' },
+        { name: 'version', type: 'string' },
+        { name: 'chainId', type: 'uint256' },
+      ],
+      WalletLink: [{ name: 'contents', type: 'string' }],
+    },
+    primaryType: 'WalletLink' as const,
+    message: { contents: message },
+  };
+}
+
 export const WalletChallengeQuerySchema = z.object({ address: EvmAddressSchema });
 
 export const LinkWalletSchema = z.object({
@@ -51,6 +71,8 @@ export type LinkArcCampaignInput = z.infer<typeof LinkArcCampaignSchema>;
 
 export interface WalletChallenge {
   message: string;
+  /** EIP-712 form of `message` (eth_signTypedData_v4). */
+  typedData: ReturnType<typeof walletLinkTypedData>;
   issuedAt: string;
   address: string;
   chainId: number;

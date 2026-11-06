@@ -1,6 +1,7 @@
 import {
   Body,
   Controller,
+  Logger,
   Get,
   HttpCode,
   HttpStatus,
@@ -60,6 +61,17 @@ export class ArcSessionController {
   @Throttle({ default: { limit: 10, ttl: 60_000 } })
   code(@Param('code') code: string): Promise<{ t: string }> {
     return this.sessions.resolveCode(code);
+  }
+
+  /** Error reports from the wallet page (wallet apps' errors can't be reproduced server-side). */
+  @Post('client-log')
+  @HttpCode(HttpStatus.NO_CONTENT)
+  @Throttle({ default: { limit: 10, ttl: 60_000 } })
+  clientLog(@Body() body: { v?: unknown; m?: unknown; ua?: unknown; acct?: unknown }): void {
+    const str = (x: unknown, n: number) => (typeof x === 'string' ? x.slice(0, n) : '');
+    new Logger('ArcWalletPage').warn(
+      `wallet page v${str(body?.v, 8)} error: ${str(body?.m, 600)} | account ${str(body?.acct, 42)} | ${str(body?.ua, 160)}`,
+    );
   }
 
   @Get('session')

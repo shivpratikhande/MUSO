@@ -2,9 +2,9 @@ import type { INestApplication } from '@nestjs/common';
 import { Test } from '@nestjs/testing';
 import { randomUUID } from 'node:crypto';
 import request from 'supertest';
-import { getAddress, verifyMessage, type Address, type Hex } from 'viem';
+import { getAddress, verifyMessage, verifyTypedData, type Address, type Hex } from 'viem';
 import { generatePrivateKey, privateKeyToAccount, type PrivateKeyAccount } from 'viem/accounts';
-import { walletLinkMessage } from '@muso/shared';
+import { walletLinkMessage, walletLinkTypedData } from '@muso/shared';
 import { AppModule } from '../src/app.module.js';
 import { configureApp } from '../src/bootstrap.js';
 import { PrismaService } from '../src/database/prisma.service.js';
@@ -78,8 +78,15 @@ class FakeArcChain implements ArcChain {
     this.balances.set(a.toLowerCase(), (this.balances.get(a.toLowerCase()) ?? 0n) + amt);
     return this.tx();
   }
-  verifySignature(address: Address, message: string, signature: Hex) {
-    return verifyMessage({ address, message, signature });
+  async verifySignature(address: Address, message: string, signature: Hex) {
+    if (await verifyMessage({ address, message, signature }).catch(() => false)) return true;
+    const { EIP712Domain: _d, ...types } = walletLinkTypedData(message, 5042002).types;
+    return verifyTypedData({
+      address,
+      signature,
+      ...walletLinkTypedData(message, 5042002),
+      types,
+    }).catch(() => false);
   }
 }
 
@@ -247,6 +254,25 @@ describe('Arc on-chain reward payouts (e2e)', () => {
       await linkWallet(user, acct);
       const me = await http().get('/v1/me/wallet').set(user.auth).expect(200);
       expect(me.body.data.address).toBe(acct.address);
+    });
+
+    it('also accepts the EIP-712 typed-data form of the message', async () => {
+      const user = await makeUser(app, prisma);
+      const acct = privateKeyToAccount(generatePrivateKey());
+      const ch = (
+        await http()
+          .get('/v1/me/wallet/challenge')
+          .query({ address: acct.address })
+          .set(user.auth)
+          .expect(200)
+      ).body.data;
+      const { EIP712Domain: _d, ...types } = ch.typedData.types;
+      const signature = await acct.signTypedData({ ...ch.typedData, types });
+      await http()
+        .put('/v1/me/wallet')
+        .set(user.auth)
+        .send({ address: acct.address, issuedAt: ch.issuedAt, signature })
+        .expect(200);
     });
 
     it('refuses a signature made for another account, and one wallet on two accounts', async () => {
