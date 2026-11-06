@@ -1,0 +1,14 @@
+# Keep the backend image build small. The mobile app's package.json stays (the pnpm lockfile
+# lists it), but none of its sources or native projects are needed.
+**/node_modules
+**/dist
+**/.turbo
+**/*.tsbuildinfo
+.git
+.env
+.env.*
+!.env.example
+apps/mobile/*
+!apps/mobile/package.json
+packages/database/src/generated
+coverage

@@ -1,0 +1,15 @@
+{
+  "$schema": "https://railway.com/railway.schema.json",
+  "build": {
+    "builder": "DOCKERFILE",
+    "dockerfilePath": "apps/backend/Dockerfile"
+  },
+  "deploy": {
+    "preDeployCommand": ["pnpm --filter @muso/database db:deploy"],
+    "startCommand": "node apps/backend/dist/main.js",
+    "healthcheckPath": "/v1/health",
+    "healthcheckTimeout": 120,
+    "restartPolicyType": "ON_FAILURE",
+    "restartPolicyMaxRetries": 5
+  }
+}
