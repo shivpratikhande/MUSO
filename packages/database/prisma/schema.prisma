@@ -697,7 +697,7 @@ model PaymentIntent {
   updatedAt      DateTime      @updatedAt @map("updated_at")
 
   payer       User                @relation("Payer", fields: [payerId], references: [id])
-  payee       User?               @relation("Payee", fields: [payeeId], references: [id])
+  payee       User?               @relation("Payee", fields: [payeeId], references: [id], onDelete: Restrict)
   post        Post?               @relation(fields: [postId], references: [id], onDelete: SetNull)
   rewardPool  RewardPool?         @relation(fields: [rewardPoolId], references: [id])
   entitlement ContentEntitlement?

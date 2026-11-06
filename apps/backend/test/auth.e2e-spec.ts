@@ -6,6 +6,7 @@ import { AppModule } from '../src/app.module.js';
 import { configureApp } from '../src/bootstrap.js';
 import { PrismaService } from '../src/database/prisma.service.js';
 import { MailService } from '../src/modules/mail/mail.service.js';
+import { cleanupTestUsers } from './helpers.js';
 
 const PASSWORD = 'correct-horse-battery';
 let seq = 0;
@@ -43,7 +44,7 @@ describe('Auth (e2e)', () => {
   });
 
   afterAll(async () => {
-    await prisma.user.deleteMany({ where: { email: { endsWith: '@test.muso' } } });
+    await cleanupTestUsers(prisma);
     await app.close();
   });
 

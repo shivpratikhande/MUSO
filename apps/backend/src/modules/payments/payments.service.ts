@@ -11,7 +11,13 @@ import {
 } from '@muso/shared';
 import type { Env } from '../../config/env.js';
 import { decodeCursor, encodeCursor } from '../../common/cursor.js';
-import { badRequest, conflict, forbidden, notFound } from '../../common/errors.js';
+import {
+  badRequest,
+  conflict,
+  forbidden,
+  isUniqueViolation,
+  notFound,
+} from '../../common/errors.js';
 import { isBlockedEitherWay } from '../../common/users.js';
 import { PrismaService } from '../../database/prisma.service.js';
 import { StorageService } from '../../storage/storage.service.js';
@@ -251,6 +257,60 @@ export class PaymentsService {
       include: paymentInclude,
     });
     return this.toDto(row);
+  }
+
+  /**
+   * Records a payment that an external rail has ALREADY settled (e.g. an x402 payment settled
+   * on Hedera by the facilitator). Idempotent on (provider, providerRef): replays of the same
+   * settled transaction never record twice. Runs the same fulfilment as checkout payments:
+   * entitlement → creator earning (pending) → balanced ledger journal.
+   */
+  async recordSettledUnlock(input: {
+    payerId: string;
+    postId: string;
+    amountMinor: number;
+    currency: string;
+    provider: string;
+    providerRef: string;
+  }): Promise<{ paymentId: string; alreadyRecorded: boolean }> {
+    const existing = await this.prisma.paymentIntent.findUnique({
+      where: { provider_providerRef: { provider: input.provider, providerRef: input.providerRef } },
+    });
+    if (existing) return { paymentId: existing.id, alreadyRecorded: true };
+    const post = await this.prisma.post.findUniqueOrThrow({
+      where: { id: input.postId },
+      select: { authorId: true },
+    });
+    let intent: PaymentIntent;
+    try {
+      intent = await this.prisma.paymentIntent.create({
+        data: {
+          payerId: input.payerId,
+          payeeId: post.authorId,
+          postId: input.postId,
+          kind: 'UNLOCK',
+          amountMinor: input.amountMinor,
+          currency: input.currency,
+          feeBps: this.config.get('PLATFORM_FEE_BPS_SALES', { infer: true }),
+          provider: input.provider,
+          providerRef: input.providerRef,
+          idempotencyKey: input.providerRef,
+          expiresAt: new Date(),
+        },
+      });
+    } catch (err) {
+      if (isUniqueViolation(err)) {
+        const again = await this.prisma.paymentIntent.findUniqueOrThrow({
+          where: {
+            provider_providerRef: { provider: input.provider, providerRef: input.providerRef },
+          },
+        });
+        return { paymentId: again.id, alreadyRecorded: true };
+      }
+      throw err;
+    }
+    await this.fulfill(intent);
+    return { paymentId: intent.id, alreadyRecorded: false };
   }
 
   /** Re-checks payments the app never came back for. Returns how many were checked. */

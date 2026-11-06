@@ -176,3 +176,49 @@ Fan captures are never marked official. A post is only "official" when the tagge
 - `.env` files are git-ignored. Never commit secrets. Only `EXPO_PUBLIC_*` values reach the app bundle, so never put secrets there.
 - No private keys, seed phrases or service credentials in the app or repo.
 - Financial features (Milestone 4+) will use a server-side ledger, idempotency keys, and payment verification on the server. Clients never set balances or payment status.
+
+---
+
+## Hedera x402 — AI agents pay creators (ETHGlobal track)
+
+Paid fan captures are sold per item to **autonomous agents** over [x402](https://docs.hedera.com/solutions/ai/x402/merchant-integration), settled in **USDC on Hedera testnet** with no human approving each payment.
+
+```
+Agent (apps/agent)                        MUSO API (apps/backend/src/modules/x402)            x402 facilitator        Hedera
+  │ GET /.well-known/x402 ───────────────▶ discovery doc (catalogue URL, network, asset)
+  │ GET /v1/x402/catalog ────────────────▶ paid posts + USDC price (INR → USD at X402_INR_PER_USD)
+  │ policy check: budget · per-item cap · per-creator limit · allowlist · query
+  │ GET /v1/x402/posts/:id/content ──────▶ 402 + PAYMENT-REQUIRED (USDC 0.0.429274, payTo, feePayer)
+  │ signs USDC TransferTransaction
+  │ GET … + PAYMENT-SIGNATURE ───────────▶ verify ─────────────────────────────────▶ /verify
+  │                                        settle ─────────────────────────────────▶ /settle ───▶ consensus
+  │ ◀── 200 + PAYMENT-RESPONSE + media ─── record sale (idempotent on tx id): entitlement,
+  │                                        creator earning (pending), balanced ledger journal
+  ▼ logs tx id + HashScan link (apps/agent/spend-log.jsonl)
+```
+
+- **Server:** `apps/backend/src/modules/x402/*`. It uses `@x402/core` + `@x402/hedera` with a per-post price. Settled Hedera transactions go through the same fulfilment as every other payment (`PaymentsService.recordSettledUnlock`), so creators see agent sales in **Earnings**.
+- **Agent:** `apps/agent/src/agent.ts` with its policy in `policy.ts` (unit-tested). The agent never signs above its per-item cap: our policy checks first, then x402 `spendControls` enforces the cap at the protocol level.
+- **Facilitator:** `https://x402.org/facilitator` (Hedera testnet). Blocky402 or Launa also work through `X402_FACILITATOR_URL`.
+
+### Run it
+1. Create a Hedera testnet account at [portal.hedera.com](https://portal.hedera.com) and put it in `apps/agent/.env` (`HEDERA_ACCOUNT_ID`, `HEDERA_PRIVATE_KEY`).
+2. Run `pnpm --filter @muso/agent setup:hedera`. It associates the agent with testnet USDC and creates the MUSO treasury account; copy the printed `X402_PAY_TO` into the root `.env` and set `X402_ENABLED=true`.
+3. Get testnet USDC for the agent at [faucet.circle.com](https://faucet.circle.com) (Hedera testnet).
+4. Restart the API. Post a photo with **Pay to unlock** in the app.
+5. Run `pnpm --filter @muso/agent start` (or `AGENT_DRY_RUN=true` to only discover and decide).
+
+**Settled transaction (testnet):** _to be added after the first live run_
+
+
+
+ETHGlobal asks teams to disclose AI usage. This project was built with an AI coding assistant (Claude, via Claude Code) working under the team's direction:
+
+- **The team** set the product vision, the requirements, the sponsor-track choices, and all decisions on scope and trade-offs. The team reviewed and tested the results on device.
+- **The AI assistant** wrote most of the implementation code, database migrations, automated tests and documentation, following the team's specifications. It also researched current SDK documentation (Expo, Prisma, NestJS, x402/Hedera, …) before using each library.
+- Every feature is covered by automated tests that run against real services (PostgreSQL, Redis, MinIO, ffmpeg). See each milestone's test counts in `CHECKLIST.md`.
+
+## License
+
+[MIT](LICENSE)
+

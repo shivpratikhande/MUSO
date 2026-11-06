@@ -8,3 +8,5 @@ process.env['DATABASE_URL'] = process.env['TEST_DATABASE_URL'];
 process.env['S3_PUBLIC_ENDPOINT'] = 'http://localhost:9000';
 process.env['S3_AUTO_CREATE_BUCKETS'] = 'true';
 process.env['PUBLIC_API_URL'] = 'http://localhost:4000';
+process.env['X402_ENABLED'] = 'true';
+process.env['X402_PAY_TO'] = '0.0.7777';

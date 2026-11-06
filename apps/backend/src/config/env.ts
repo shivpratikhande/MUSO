@@ -63,6 +63,20 @@ export const EnvSchema = z.object({
     .min(0)
     .max(60 * 24 * 60)
     .default(7 * 24 * 60),
+  /** x402: lets AI agents buy paid content per request, settled on Hedera (USDC). */
+  X402_ENABLED: z
+    .enum(['true', 'false'])
+    .default('false')
+    .transform((v) => v === 'true'),
+  X402_NETWORK: z.enum(['hedera:testnet', 'hedera:mainnet']).default('hedera:testnet'),
+  X402_FACILITATOR_URL: z.url().default('https://x402.org/facilitator'),
+  /** Hedera account that receives agent payments (MUSO treasury; creators are credited via the ledger). */
+  X402_PAY_TO: z
+    .string()
+    .regex(/^0\.0\.\d+$/, 'Hedera account id like 0.0.12345')
+    .optional(),
+  /** Fixed demo FX rate for quoting INR prices in USDC. */
+  X402_INR_PER_USD: z.coerce.number().positive().default(84),
   /** Run payment reconciliation + earnings release timers in this process. */
   PAYMENTS_WORKER_ENABLED: z
     .enum(['true', 'false'])
@@ -79,6 +93,9 @@ export type Env = z.infer<typeof EnvSchema>;
 /** Cross-field rules. */
 function checkEnv(env: Env): string[] {
   const problems: string[] = [];
+  if (env.X402_ENABLED && !env.X402_PAY_TO) {
+    problems.push('  - X402_PAY_TO: required when X402_ENABLED=true');
+  }
   if (env.NODE_ENV === 'production' && env.PAYMENTS_PROVIDER === 'sandbox') {
     problems.push('  - PAYMENTS_PROVIDER: the sandbox provider cannot be used in production');
   }

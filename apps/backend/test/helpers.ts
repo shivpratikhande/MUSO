@@ -104,13 +104,31 @@ export async function cleanupTestUsers(prisma: PrismaService): Promise<void> {
   // Money rows reference users without cascades (financial records are never cascaded away),
   // so test cleanup removes them explicitly. Ledger entries are append-only and stay.
   await prisma.earning.deleteMany({ where: { creatorId: { in: ids } } });
-  await prisma.contentEntitlement.deleteMany({ where: { userId: { in: ids } } });
+  await prisma.contentEntitlement.deleteMany({
+    where: {
+      OR: [
+        { userId: { in: ids } },
+        { payment: { OR: [{ payerId: { in: ids } }, { payeeId: { in: ids } }] } },
+      ],
+    },
+  });
   await prisma.paymentIntent.deleteMany({
     where: { OR: [{ payerId: { in: ids } }, { payeeId: { in: ids } }] },
   });
+  await prisma.rewardPool.deleteMany({ where: { creatorId: { in: ids } } });
   await prisma.post.deleteMany({ where: { authorId: { in: ids } } });
   await prisma.event.deleteMany({ where: { organizerId: { in: ids } } });
   await prisma.user.deleteMany({ where: { id: { in: ids } } });
+  // Passwordless agent buyers created by x402 tests.
+  const agents = await prisma.user.findMany({
+    where: { email: { endsWith: '@agents.muso.invalid' } },
+    select: { id: true },
+  });
+  const agentIds = agents.map((a) => a.id);
+  await prisma.contentEntitlement.deleteMany({ where: { userId: { in: agentIds } } });
+  await prisma.earning.deleteMany({ where: { payment: { payerId: { in: agentIds } } } });
+  await prisma.paymentIntent.deleteMany({ where: { payerId: { in: agentIds } } });
+  await prisma.user.deleteMany({ where: { id: { in: agentIds } } });
 }
 
 /** Presigns and uploads an original capture to the private bucket. Returns the storage key. */

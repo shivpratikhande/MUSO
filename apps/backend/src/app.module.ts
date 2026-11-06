@@ -19,6 +19,7 @@ import { PaymentsModule } from './modules/payments/payments.module.js';
 import { ContentModule } from './modules/posts/content.module.js';
 import { ReportsModule } from './modules/reports/reports.module.js';
 import { RewardsModule } from './modules/rewards/rewards.module.js';
+import { X402Module } from './modules/x402/x402.module.js';
 import { UploadsModule } from './modules/uploads/uploads.module.js';
 import { RedisModule } from './redis/redis.module.js';
 import { StorageModule } from './storage/storage.module.js';
@@ -80,6 +81,7 @@ import { StorageModule } from './storage/storage.module.js';
     ReportsModule,
     PaymentsModule,
     RewardsModule,
+    X402Module,
   ],
   providers: [
     { provide: APP_GUARD, useClass: ThrottlerGuard },

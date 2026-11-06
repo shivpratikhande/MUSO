@@ -9,7 +9,8 @@ export function configureApp(app: INestApplication): void {
   const config = app.get(ConfigService<Env, true>);
 
   app.use(helmet());
-  app.setGlobalPrefix('v1');
+  // /.well-known/x402 must live at the root for agent discovery.
+  app.setGlobalPrefix('v1', { exclude: ['.well-known/x402'] });
   app.enableCors({ origin: config.get('CORS_ORIGINS', { infer: true }), credentials: true });
   app.enableShutdownHooks();
 

@@ -233,39 +233,85 @@ A UI that exists but isn't wired to the backend is `[~]`, never `[x]`.
 
 ---
 
-## Milestone 6 — Wallet & Blockchain
+## 🏁 ETHGlobal Mumbai — Hackathon Phase (replaces Milestone 6, part of Milestone 7)
 
-- [ ] Coinbase CDP Embedded Wallet (Expo dev build, polyfills verified)
-- [ ] Wallet abstraction layer
-- [ ] Wallet linked to user (ownership proven server-side)
-- [ ] Base Sepolia + testnet USDC
-- [ ] Stablecoin payments for unlocks / tips
-- [ ] On-chain transaction verification by backend
-- [ ] Reward pool funding contract (escrow) — only where it adds real value
-- [ ] Contracts: OpenZeppelin, reentrancy guard, SafeERC20, events, tests
-- [ ] Nothing personal / media / watch events on-chain
-- [ ] No seed phrases or private keys on device storage or in repo
+> Plan: **Option C** (Hedera x402 + Arc + World ID); H4 only if more than 3 partner prizes are allowed.
+> Everything plugs into the existing payment-provider interface, ledger, reward-pool maths and anti-fraud rules.
+
+### H0 — Preparation
+- [ ] Confirm with ETHGlobal that the pre-existing codebase is allowed (and how to disclose it)
+- [ ] Confirm the partner-prize limit (usually 3)
+- [x] MIT licence + "How we used AI" section in README
+- [~] Read current docs: Hedera x402 + facilitators ✅ · Arc Studio + Circle tools · World IDKit
+- [ ] Accounts/keys in `.env` only: Hedera testnet account, Arc Studio / Circle, World developer app
+- [ ] Team names + Telegram/X for submission
+
+### H1 — Hedera x402: AI agents pay creators ($6.5k)
+- [x] x402-protected endpoint for paid content (`402 Payment Required` → pay → content)
+- [~] Settlement on Hedera testnet through an approved facilitator (verified against live x402.org facilitator; first live payment needs a funded testnet account)
+- [x] Public catalogue + `/.well-known/x402` discovery
+- [x] Agent client: discovers, reads price, pays automatically (no human approval), downloads (+ dry-run mode)
+- [x] Agent guardrails: total budget, per-item cap (also enforced by x402 spendControls), per-creator limit, allowlist, query
+- [x] Hedera recorded as a payment provider → ledger + creator Earnings (idempotent on tx id)
+- [ ] Optional: HCS audit log of agent spending
+- [~] Tests (6 e2e + 4 policy) and README (setup, architecture, payment flow) done; real tx ID + HashScan link after first live run
+- [ ] Demo video ≤ 5 min showing settlement on HashScan
+
+### H2 — Arc: USDC reward-pool contract ($3k) — *also covers M6 contract + M7 reward payouts*
+- [ ] Contract built in **Arc Studio** (required): createCampaign (sponsor deposits USDC), setAllocations (Merkle root), claim (once per creator), reclaimUnallocated (leftover back to sponsor)
+- [ ] Access control, reentrancy protection, safe ERC-20 transfers, events, contract tests
+- [ ] Reusable by other builders (bonus)
+- [ ] Deployed to Arc testnet; addresses in README
+- [ ] Backend: Milestone 5 payout maths → Merkle tree → posts root, stores each creator's proof
+- [ ] Creator claim page (wallet connect on Arc testnet)
+- [ ] Architecture diagram, Arc Studio project URL, docs of core functions + Circle tools
+- [ ] Demo video showing Arc Studio
+
+### H3 — World ID: one real human per reward pool ($2.5k)
+- [ ] IDKit with **Proof of Human** (minimum sufficient credential — justified in docs)
+- [ ] Required to join a reward pool (not used as a login)
+- [ ] Backend verifies proof; campaign-scoped nullifier stops the same human joining twice
+- [ ] Alternative paths tested: cancelled, rejected, already used, ineligible → nothing granted
+- [ ] Only verified humans can claim from the Arc pool
+- [ ] Integration debrief: time to first success, friction, missing docs, top improvement
+- [ ] Confirm IDKit works for our mobile app (else a small web step)
+
+### H4 — Extra tracks (only if prize limit allows)
+- [ ] **Chainlink CRE** ($1.5k): workflow fetches pool allocations from our API, validates budget/caps/eligibility, calls `setAllocations` on-chain; successful CLI simulation
+- [ ] **Arkiv** ($4k): artist profiles, events, post metadata as Arkiv entities with meaningful expiry; Discover/Events read from Arkiv; all required `/arkiv/*.md` files + runnable query + writer wallet
+- [ ] **Swarm bonus** (+$0.5k): free event videos on Swarm, reference stored in the Arkiv post, app plays from Swarm; `/arkiv/swarm.md`
+
+### H5 — Submission & quality (part of Milestone 7)
+- [ ] Security pass on all new code (contracts, x402 endpoint, World ID verification)
+- [ ] End-to-end tests for every new flow
+- [ ] Demo videos per track (length limits respected)
+- [ ] README: setup, architecture diagram, deployed addresses, transaction IDs
+- [ ] Judge access: demo video + small web page or TestFlight (native app has no web link)
+- [ ] Public GitHub repo, open-source licence
 
 ---
 
-## Milestone 7 — Payouts, Testing & Launch Prep
+## ⏭ After the Hackathon — remaining Milestone 6 & 7
 
-### Payouts
-- [ ] Creator verification (KYC provider evaluated for India)
-- [ ] Payout destination + eligibility checks
-- [ ] Minimum payout threshold
+### Wallets (from M6)
+- [ ] Coinbase CDP embedded wallet in the app (needs Xcode or EAS dev build)
+- [ ] Wallet linked to user (ownership proven server-side)
+- [ ] No seed phrases or private keys on device storage or in repo
+
+### Real money & payouts (from M7)
+- [ ] INR provider (Razorpay / Cashfree) behind the payment-provider interface
+- [ ] Creator verification / KYC (India), tax handling
+- [ ] Payout destination + eligibility checks, minimum threshold
 - [ ] Payout request + status + history
-- [ ] Failed payout, refund and reversal handling
+- [ ] Failed payout, refund and reversal handling (incl. funded-pool cancellation)
 - [ ] On-chain contribution ≠ completed payout
 
-### Quality
-- [ ] API tests for all financial flows
+### Launch quality (from M7)
 - [ ] Mobile tests
-- [ ] Smart contract tests
-- [ ] Security review
+- [ ] Full security review
 - [ ] Media performance pass
 - [ ] Accessibility pass
-- [ ] Deployment docs
+- [ ] Deployment docs + production infrastructure
 
 ---
 
