@@ -68,7 +68,9 @@ export class ArcSessionController {
   @HttpCode(HttpStatus.NO_CONTENT)
   @Throttle({ default: { limit: 10, ttl: 60_000 } })
   clientLog(@Body() body: { v?: unknown; m?: unknown; ua?: unknown; acct?: unknown }): void {
-    const str = (x: unknown, n: number) => (typeof x === 'string' ? x.slice(0, n) : '');
+    // Public endpoint: strip control characters so a report can't forge extra log lines.
+    const str = (x: unknown, n: number) =>
+      typeof x === 'string' ? x.replace(/[\u0000-\u001f\u007f]+/g, ' ').slice(0, n) : '';
     new Logger('ArcWalletPage').warn(
       `wallet page v${str(body?.v, 8)} error: ${str(body?.m, 600)} | account ${str(body?.acct, 42)} | ${str(body?.ua, 160)}`,
     );
