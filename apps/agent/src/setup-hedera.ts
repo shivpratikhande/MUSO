@@ -12,6 +12,7 @@ import {
   PrivateKey,
   TokenAssociateTransaction,
 } from '@hiero-ledger/sdk';
+import { parseHederaKey } from './keys.js';
 
 config({ path: new URL('../.env', import.meta.url).pathname });
 const USDC_TESTNET = '0.0.429274';
@@ -21,7 +22,7 @@ async function main() {
   const operatorKey = process.env['HEDERA_PRIVATE_KEY'];
   if (!operatorId || !operatorKey)
     throw new Error('Set HEDERA_ACCOUNT_ID and HEDERA_PRIVATE_KEY in apps/agent/.env');
-  const key = PrivateKey.fromString(operatorKey);
+  const key = parseHederaKey(operatorKey);
   const client = Client.forTestnet().setOperator(operatorId, key);
 
   try {

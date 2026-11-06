@@ -10,7 +10,7 @@
 import { config } from 'dotenv';
 import { appendFileSync, mkdirSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
-import { PrivateKey } from '@hiero-ledger/sdk';
+import { parseHederaKey } from './keys.js';
 import { x402Client } from '@x402/core/client';
 import { decodePaymentResponseHeader } from '@x402/core/http';
 import { wrapFetchWithPayment } from '@x402/fetch';
@@ -62,7 +62,7 @@ async function main() {
   let paidFetch: typeof fetch = fetch;
   if (!dryRun) {
     const accountId = env('HEDERA_ACCOUNT_ID');
-    const key = PrivateKey.fromString(env('HEDERA_PRIVATE_KEY'));
+    const key = parseHederaKey(env('HEDERA_PRIVATE_KEY'));
     const signer = createClientHederaSigner(accountId, key, { network });
     const client = x402Client.fromConfig({
       schemes: [{ network: 'hedera:*', client: new ExactHederaScheme(signer) }],

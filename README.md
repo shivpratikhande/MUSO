@@ -208,7 +208,17 @@ Agent (apps/agent)                        MUSO API (apps/backend/src/modules/x40
 4. Restart the API. Post a photo with **Pay to unlock** in the app.
 5. Run `pnpm --filter @muso/agent start` (or `AGENT_DRY_RUN=true` to only discover and decide).
 
-**Settled transaction (testnet):** _to be added after the first live run_
+**First settled payment (Hedera testnet).** An agent bought a paid photo for **0.59 USDC**:
+
+| | |
+|---|---|
+| Transaction | `0.0.9185802@1793929074.532406135` |
+| HashScan | https://hashscan.io/testnet/transaction/0.0.9185802-1793929074-532406135 |
+| Transfer | USDC `0.0.429274`: agent `0.0.11332505` → −0.59 · MUSO treasury `0.0.11332740` → +0.59 |
+| Fee payer | x402.org facilitator `0.0.9185802` (the agent paid no network fee) |
+| Recorded in MUSO | payment SUCCEEDED (₹49), creator earning ₹44.10 pending, ledger journal balanced (sum 0) |
+
+All addresses above are **testnet** accounts.
 
 
 

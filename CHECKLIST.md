@@ -248,13 +248,13 @@ A UI that exists but isn't wired to the backend is `[~]`, never `[x]`.
 
 ### H1 — Hedera x402: AI agents pay creators ($6.5k)
 - [x] x402-protected endpoint for paid content (`402 Payment Required` → pay → content)
-- [~] Settlement on Hedera testnet through an approved facilitator (verified against live x402.org facilitator; first live payment needs a funded testnet account)
+- [x] Settlement on Hedera testnet through an approved facilitator (x402.org) — first live payment settled: `0.0.9185802@1793929074.532406135`
 - [x] Public catalogue + `/.well-known/x402` discovery
 - [x] Agent client: discovers, reads price, pays automatically (no human approval), downloads (+ dry-run mode)
 - [x] Agent guardrails: total budget, per-item cap (also enforced by x402 spendControls), per-creator limit, allowlist, query
 - [x] Hedera recorded as a payment provider → ledger + creator Earnings (idempotent on tx id)
 - [ ] Optional: HCS audit log of agent spending
-- [~] Tests (6 e2e + 4 policy) and README (setup, architecture, payment flow) done; real tx ID + HashScan link after first live run
+- [x] Tests (6 e2e + 4 policy); README with setup, architecture, payment flow, real tx ID + HashScan link
 - [ ] Demo video ≤ 5 min showing settlement on HashScan
 
 ### H2 — Arc: USDC reward-pool contract ($3k) — *also covers M6 contract + M7 reward payouts*
