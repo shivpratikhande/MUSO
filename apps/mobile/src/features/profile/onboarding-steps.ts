@@ -1,6 +1,7 @@
 import type { UserRole } from '@muso/shared';
 
-export type OnboardingStep = 'roles' | 'basics' | 'interests' | 'artist' | 'creator' | 'organizer';
+export type OnboardingStep =
+  'roles' | 'basics' | 'interests' | 'artist' | 'creator' | 'organizer' | 'wallet';
 
 const ROUTE: Record<
   OnboardingStep,
@@ -10,6 +11,7 @@ const ROUTE: Record<
   | '/onboarding/artist'
   | '/onboarding/creator'
   | '/onboarding/organizer'
+  | '/onboarding/wallet'
 > = {
   roles: '/onboarding',
   basics: '/onboarding/basics',
@@ -17,6 +19,7 @@ const ROUTE: Record<
   artist: '/onboarding/artist',
   creator: '/onboarding/creator',
   organizer: '/onboarding/organizer',
+  wallet: '/onboarding/wallet',
 };
 
 /** Ordered steps for the chosen roles. Role-specific steps only appear when relevant. */
@@ -26,6 +29,8 @@ export function stepsFor(roles: readonly UserRole[]): OnboardingStep[] {
   if (roles.includes('ARTIST')) steps.push('artist');
   if (roles.includes('CREATOR')) steps.push('creator');
   if (roles.includes('ORGANIZER')) steps.push('organizer');
+  // Optional: a USDC payout wallet for on-chain (Arc) reward pools. Anyone who posts can earn.
+  steps.push('wallet');
   return steps;
 }
 

@@ -76,7 +76,10 @@ export class ArcSessionService {
     };
     if (poolId) token.pool = poolId;
     const payload = Buffer.from(JSON.stringify(token)).toString('base64url');
-    const base = this.config.get('PUBLIC_API_URL', { infer: true }).replace(/\/$/, '');
+    const base = (
+      this.config.get('ARC_PUBLIC_URL', { infer: true }) ??
+      this.config.get('PUBLIC_API_URL', { infer: true })
+    ).replace(/\/$/, '');
     return { url: `${base}/v1/arc/connect?t=${payload}.${this.sign(payload)}` };
   }
 

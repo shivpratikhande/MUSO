@@ -85,6 +85,11 @@ export const EnvSchema = z.object({
   ARC_RPC_URL: z.url().default('https://rpc.testnet.arc.network'),
   ARC_CHAIN_ID: z.coerce.number().int().positive().default(5042002),
   ARC_EXPLORER_URL: z.url().default('https://testnet.arcscan.app'),
+  /**
+   * Public https base for MUSO's wallet page (wallet apps like MetaMask only open https).
+   * Defaults to PUBLIC_API_URL; in dev point it at a tunnel, e.g. `ngrok http 4000`.
+   */
+  ARC_PUBLIC_URL: z.url().optional(),
   /** USDC's ERC-20 interface on Arc (6 decimals). */
   ARC_USDC_ADDRESS: z
     .string()
