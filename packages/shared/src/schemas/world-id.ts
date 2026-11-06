@@ -7,7 +7,8 @@ import { z } from 'zod';
 export interface WorldIdContext {
   app_id: string;
   action: string;
-  environment: 'production' | 'staging';
+  /** `sandbox` = World's [SANDBOX] test app, `staging` = web Simulator, `production` = World App. */
+  environment: 'production' | 'staging' | 'sandbox';
   /** Bound into the proof; the server checks it matches the signed-in account. */
   signal: string;
   rp_context: {

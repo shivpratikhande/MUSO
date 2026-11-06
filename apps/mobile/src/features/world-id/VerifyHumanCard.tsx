@@ -75,10 +75,10 @@ export function VerifyHumanCard({ reason }: { reason?: string }) {
           )}
         </>
       )}
-      {!q.data.verified && ctx?.environment === 'staging' ? (
+      {!q.data.verified && ctx && ctx.environment !== 'production' ? (
         <AppText variant="caption" tone="muted" style={{ marginTop: t.space.xs }}>
-          Test mode (staging): approve in the “[SANDBOX] World ID” app from World’s TestFlight, or
-          paste the link in the web Simulator ({SIMULATOR}).
+          Test mode ({ctx?.environment}): approve in the “[SANDBOX] World ID” app from World’s
+          TestFlight, or scan the code with the web Simulator ({SIMULATOR}) on a laptop.
         </AppText>
       ) : null}
     </Card>
@@ -121,6 +121,7 @@ function HumanFlow({
     if (!flow.connectorURI || opened.current) return;
     opened.current = true;
     // Staging: stay here and show the QR code (scan it with the Simulator on a laptop).
+    // Sandbox and production open the app (the [SANDBOX] World ID test app / World App).
     if (ctx.environment === 'staging') return;
     Linking.openURL(flow.connectorURI).catch(() =>
       onError('Could not open World App. Is it installed?'),
@@ -149,11 +150,11 @@ function HumanFlow({
           ? 'Checking your proof with World…'
           : flow.isAwaitingUserConfirmation
             ? 'Approve the request in World App…'
-            : ctx.environment === 'staging'
-              ? 'Waiting for the Simulator…'
+            : ctx.environment !== 'production'
+              ? 'Waiting for approval in the test app or Simulator…'
               : 'Approve in World App, then come back here.'}
       </AppText>
-      {flow.connectorURI && !flow.result && ctx.environment === 'staging' ? (
+      {flow.connectorURI && !flow.result && ctx.environment !== 'production' ? (
         // A phone can't scan its own screen: open simulator.worldcoin.org on a laptop and scan this.
         <View style={{ alignItems: 'center', gap: 6, paddingVertical: 8 }}>
           <View style={{ padding: 10, backgroundColor: '#fff', borderRadius: 8 }}>
@@ -170,10 +171,10 @@ function HumanFlow({
           <Button
             size="sm"
             variant="secondary"
-            label={ctx.environment === 'staging' ? 'Open Sandbox app' : 'Open World App'}
+            label={ctx.environment === 'production' ? 'Open World App' : 'Open Sandbox app'}
             onPress={() => void Linking.openURL(flow.connectorURI!)}
           />
-          {ctx.environment === 'staging' ? (
+          {ctx.environment !== 'production' ? (
             <Button
               size="sm"
               variant="ghost"

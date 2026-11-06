@@ -124,8 +124,11 @@ export const EnvSchema = z.object({
     .regex(/^(0x)?[0-9a-fA-F]{64}$/, '32-byte hex key')
     .optional(),
   WORLD_ID_ACTION: z.string().min(1).max(100).default('muso-creator-rewards'),
-  /** `staging` works with the World ID Simulator; real phones need `production`. */
-  WORLD_ID_ENVIRONMENT: z.enum(['production', 'staging']).default('staging'),
+  /**
+   * `sandbox`: World's [SANDBOX] World ID test app (mocked proofs). `staging`: the web Simulator.
+   * `production`: the real World App.
+   */
+  WORLD_ID_ENVIRONMENT: z.enum(['production', 'staging', 'sandbox']).default('staging'),
   WORLD_ID_VERIFY_URL: z.url().default('https://developer.world.org/api/v4/verify'),
   /** Arkiv: public, queryable record of events, clips and sponsored pools' attention reports. */
   ARKIV_ENABLED: z

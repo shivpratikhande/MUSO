@@ -48,7 +48,7 @@ export class WorldIdService implements OnModuleInit {
   private get action(): string {
     return this.config.get('WORLD_ID_ACTION', { infer: true });
   }
-  private get environment(): 'production' | 'staging' {
+  private get environment(): 'production' | 'staging' | 'sandbox' {
     return this.config.get('WORLD_ID_ENVIRONMENT', { infer: true });
   }
 
