@@ -268,7 +268,8 @@ A UI that exists but isn't wired to the backend is `[~]`, never `[x]`.
 - [x] Creator wallet linking API with signature proof (EOA + smart wallets via ERC-1271/6492)
 - [x] App: Earnings → link USDC payout wallet; pool → "Fund with USDC on Arc" + on-chain payouts list (opens MUSO's wallet page in MetaMask / Coinbase Wallet / browser via a signed short-lived link)
 - [x] Live end to end on Arc testnet through MUSO: page-funded campaign #2 → watch time → awardMany → relayed claimFor (Alice 1.33, Bob 0.67 USDC, late wallet paid) — `pnpm --filter @muso/backend arc:demo`
-- [ ] Architecture diagram, docs of core functions + Circle tools in README
+- [x] Architecture diagram, docs of core functions + Circle tools in README (Arc section)
+- [x] Creator wallet linked from a real phone (MetaMask mobile: pairing code + EIP-712 fallback)
 - [ ] Demo video showing Arc Studio
 
 ### H3 — World ID: one real human per reward pool ($2.5k)

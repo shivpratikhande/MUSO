@@ -220,7 +220,88 @@ Agent (apps/agent)                        MUSO API (apps/backend/src/modules/x40
 
 All addresses above are **testnet** accounts.
 
+---
 
+## Arc — sponsor-funded USDC reward pools (ETHGlobal track)
+
+Sponsors fund a MUSO reward pool with **USDC on [Arc](https://arc.network)** (Circle's stablecoin-native L1, where gas is USDC too). The money sits in a contract, not with MUSO. When the pool ends, MUSO splits it by server-verified watch time and pays every creator **straight to their wallet**. MUSO pays the gas, so creators never need any.
+
+- **Contract:** `RewardCampaigns`, **built in [Arc Studio](https://studio.arc.io)**. Project: https://studio.arc.io/app/a2e5e21f-ce8e-4ba9-87f0-b46aa7e6cc03?thread=d76eb9e9-1820-493a-86f5-9fffd28f605d
+- **Deployed (Arc Testnet, chain 5042002):** [`0x7cbbb1f0e9d7301c16e6d544f9a55d13030f74eb`](https://testnet.arcscan.app/address/0x7cbbb1f0e9d7301c16e6d544f9a55d13030f74eb). Source: [`packages/contracts/studio/RewardCampaigns.sol`](packages/contracts/studio/RewardCampaigns.sol), which matches the live runtime bytecode.
+- **More detail:** build history, security review and every transaction are in [`packages/contracts/ARC_STUDIO.md`](packages/contracts/ARC_STUDIO.md).
+
+```
+ Sponsor (organizer)                 MUSO app + API                              Arc Testnet
+ ───────────────────                 ──────────────                              ───────────
+ "Fund with USDC on Arc" ──▶ signed short link /w/CODE (30 min) ──▶ MUSO wallet page in the wallet app
+ wallet: approve USDC + createCampaign(title, budget, cap, allocator = MUSO, endsAt) ─────▶ RewardCampaigns
+                                       POST /arc/session/fund {campaignId}               (USDC escrowed)
+                                       verify on-chain: allocator = MUSO, sponsor = the
+                                       organizer's signature-verified wallet, timing, unused
+                                       pool → FUNDED (USD)
+ Creators: "Link wallet" ──▶ sign a challenge (personal_sign or EIP-712; EOA or ERC-1271 smart wallet)
+ Fans watch videos ──▶ heartbeats ──▶ qualified watch time (anti-fraud, Milestone 5)
+                                       pool ends → split by watch time → one payout per creator
+                                       ArcWorker (every 30 s, idempotent):
+                                         awardMany(id, wallets, amounts) ──────────────────▶ reserved
+                                         claimFor(id, wallet)  (MUSO pays gas) ────────────▶ USDC → creator
+ Creators who link a wallet later are paid within the 14-day award window; the sponsor can reclaim the rest.
+```
+
+### Contract functions (`RewardCampaigns`)
+| Function | Who | What it does |
+|---|---|---|
+| `createCampaign(title, budget, maxPerRecipient, allocator, endsAt)` | anyone (the sponsor) | Pulls exactly `budget` USDC into escrow and returns the campaign id. If `allocator` is set, only it can award. |
+| `award(id, participant, amount)` / `awardMany(id, participants[], amounts[])` | the allocator (MUSO) | From `endsAt` until 14 days after, reserves each creator's share: once per address, at most the per-recipient cap and the remaining budget. The sponsor and allocator can't be paid. |
+| `claim(id)` / `claimFor(id, participant)` | the creator / anyone (MUSO relays it) | Sends the reserved USDC to the creator. A relayer can only ever pay the creator, never itself. |
+| `reclaimUnawarded(id)` | the sponsor | After the award window, returns `budget − awarded` to the sponsor. Awarded funds stay claimable forever. |
+| `getCampaign`, `getCampaigns`, `awardOf`, `isAwarded`, `hasClaimed` | anyone | Read-only views. |
+
+There's no owner and no admin. Nobody can move a campaign's USDC except along these paths.
+
+### How MUSO uses it
+- **Backend** (`apps/backend/src/modules/arc`):
+  - `ArcService` links campaigns to pools after checking them on-chain, verifies wallet signatures, and runs payouts. `ArcWorker` runs the payout job.
+  - `ViemArcChain` (viem) is the only code that touches the chain. Tests replace it with an in-memory fake that enforces the contract's rules.
+- **Wallet page:** `arc.page.ts` is served at `/w/:code`, or at `/` with a typed pairing code, because MetaMask mobile drops link paths. It uses the standard injected provider (EIP-1193), so it works in MetaMask and Coinbase Wallet's in-app browsers and in desktop wallet extensions.
+- **App:**
+  - Earnings and onboarding: **Link wallet**
+  - Pool screen: **Fund with USDC on Arc**, plus the on-chain payout list with explorer links
+- **Amounts:** Arc pools are kept in USD cents, and payouts are `cents × 10⁴` USDC base units. A creator's videos are combined into one payout, because the contract pays each address once per campaign.
+
+### Circle tools used
+- **Arc Testnet**, with USDC as gas, via `https://rpc.testnet.arc.network`
+- **USDC** through its ERC-20 interface `0x3600…0000` (6 decimals)
+- **Arc Studio** to build, review and deploy the contract
+- **Circle Faucet** for test USDC
+- **Arc Foundry** (`arc-forge` / `arc-cast`) for our own tests and fork checks
+
+### Security
+Our independent review of Studio's first version found two issues: (a) awards were possible before a campaign ended; (b) the sponsor could award the whole budget to itself, so creators couldn't be paid. Both are fixed in the deployed contract and covered by tests.
+
+Tests:
+- `packages/contracts/test/RewardCampaignsStudio.t.sol`: 9 tests, including a 2,000-run funds-conservation fuzz test
+- a fork test against the live deploy
+- `apps/backend/test/arc.e2e-spec.ts`: wallet proofs (expired, replayed for another account, one wallet on two accounts), campaign checks, payouts, late wallets, award-window expiry
+
+### Run it
+1. Set these in the root `.env`:
+   - `ARC_ENABLED=true`
+   - `ARC_REWARD_CAMPAIGNS_ADDRESS`
+   - `ARC_ALLOCATOR_PRIVATE_KEY` (a testnet wallet with a little USDC for gas)
+   - for phones, `ARC_PUBLIC_URL`: an https URL wallet apps can open, e.g. `ngrok http 4000`
+2. Run `pnpm --filter @muso/backend arc:demo` against the running API. It creates a pool, funds it on Arc (with `--fund-link`, through the wallet page), generates watch time, and waits until creators are paid on-chain.
+
+**Live run on Arc Testnet:**
+
+| Step | Result |
+|---|---|
+| Funding | Campaign #2 (2 USDC), funded through the wallet page |
+| Alice (watch-time share) | 1.33 USDC ([claim tx](https://testnet.arcscan.app/tx/0x09442a7758c1297ac942c6ac66937d1ce5bb034e2335717c7509cda89fbb9d4e)) |
+| Bob (linked his wallet after Alice was paid) | 0.67 USDC ([claim tx](https://testnet.arcscan.app/tx/0xdf5f7aa0409fe76e60afd89cf23d1486e016255bd7d7d05ae7fd62f2db2cdd3b)) |
+| Gas paid by creators | none |
+
+## How we used AI
 
 ETHGlobal asks teams to disclose AI usage. This project was built with an AI coding assistant (Claude, via Claude Code) working under the team's direction:
 
