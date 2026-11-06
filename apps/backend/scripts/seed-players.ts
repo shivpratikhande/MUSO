@@ -750,6 +750,111 @@ async function seedEvents(ids: Record<string, string>) {
         : '',
     })),
   );
+  return new Map(EVENTS.map((e, i) => [e.title, eventIds[i]!]));
+}
+
+// ─────────── Predictions (testnet prediction game on Arc) ───────────
+
+interface SeedPrediction {
+  event: string;
+  template: 'MATCH_WINNER' | 'BATTLE' | 'SETLIST' | 'BEST_CLIP' | 'CUSTOM';
+  question: string;
+  options?: string[];
+  /** BEST_CLIP: creator usernames. */
+  creators?: string[];
+}
+
+const PREDICTIONS: SeedPrediction[] = [
+  {
+    event: 'Block Party: Rooftop Genesis',
+    template: 'BATTLE',
+    question: 'Who plays the best set tonight?',
+    options: ['Nila Waves', 'Kavya K'],
+  },
+  {
+    event: 'Block Party: Rooftop Genesis',
+    template: 'BEST_CLIP',
+    question: 'Whose clip gets the most real watch time tonight?',
+    creators: ['pixel.rohan', 'aisha.frames', 'kabir_onchain'],
+  },
+  {
+    event: 'Hackers & Headliners Afterparty',
+    template: 'CUSTOM',
+    question: 'Will The Brass Republic play an encore?',
+    options: ['Yes', 'No'],
+  },
+  {
+    event: 'Gwei Nights: Sunset Validator',
+    template: 'SETLIST',
+    question: 'Which track drops right at sunset?',
+    options: ['Low Tide', 'Gas War', 'Validator Dawn'],
+  },
+  {
+    event: 'Chain Reaction Fest 2026: Day 1',
+    template: 'MATCH_WINNER',
+    question: 'Which stage draws the biggest crowd on Day 1?',
+    options: ['Genesis Stage', 'Fork Stage'],
+  },
+];
+
+/**
+ * Saved as PENDING: the API's predictions worker (PREDICTIONS_ENABLED=true) creates each market
+ * on Arc within ~20 s. Open to any account (not human-only) so test wallets can play.
+ */
+async function seedPredictions(ids: Record<string, string>, events: Map<string, string>) {
+  const now = Date.now();
+  let created = 0;
+  for (const p of PREDICTIONS) {
+    const event = await prisma.event.findUniqueOrThrow({ where: { id: events.get(p.event)! } });
+    if (
+      await prisma.predictionMarket.findFirst({
+        where: { eventId: event.id, question: p.question },
+      })
+    )
+      continue;
+    const live = event.startsAt.getTime() <= now;
+    // Live events: picks stay open 2 hours (but close 30 min before the end). Upcoming: at the start.
+    const locksAt = new Date(
+      live
+        ? Math.min(now + 2 * HOUR, event.endsAt.getTime() - 30 * 60_000)
+        : event.startsAt.getTime(),
+    );
+    const dataMarket = p.template === 'BEST_CLIP';
+    const settlesAt = dataMarket ? new Date(event.endsAt.getTime() + HOUR) : null;
+    const resolveBy = dataMarket
+      ? new Date(settlesAt!.getTime() + DAY)
+      : new Date(Math.max(locksAt.getTime(), event.endsAt.getTime()) + 3 * DAY);
+    const options = dataMarket
+      ? await Promise.all(
+          p.creators!.map(async (u) => {
+            const c = await prisma.user.findUniqueOrThrow({ where: { id: ids[u]! } });
+            return { label: c.displayName ?? u, creatorId: c.id };
+          }),
+        )
+      : p.options!.map((label) => ({ label, creatorId: null }));
+    await prisma.predictionMarket.create({
+      data: {
+        eventId: event.id,
+        creatorId: event.organizerId,
+        question: p.question,
+        template: p.template,
+        resolution: dataMarket ? 'DATA' : 'MANUAL',
+        options,
+        locksAt,
+        settlesAt,
+        resolveBy,
+        minStakeMicro: 1_000_000n,
+        maxStakeMicro: 10_000_000n,
+        creatorBps: dataMarket ? 1_000 : 0,
+        humanOnly: false,
+        note: 'Setting up on Arc…',
+      },
+    });
+    created++;
+  }
+  console.log(
+    `Predictions: ${created} new (${PREDICTIONS.length - created} already there). The API puts them on Arc within ~20 s.\n`,
+  );
 }
 
 async function main() {
@@ -848,7 +953,8 @@ async function main() {
   });
   await prisma.follow.createMany({ data: follows, skipDuplicates: true });
 
-  await seedEvents(ids);
+  const events = await seedEvents(ids);
+  await seedPredictions(ids, events);
 
   const parent = process.env['ENS_PARENT_NAME'] ?? 'muso.eth';
   console.log(
