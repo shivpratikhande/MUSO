@@ -1,4 +1,4 @@
-import { Inject, Injectable, Logger } from '@nestjs/common';
+import { Inject, Injectable, Logger, type OnModuleInit } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { Prisma } from '@muso/database';
 import type { HumanStatus, VerifyHumanInput, WorldIdContext } from '@muso/shared';
@@ -18,7 +18,7 @@ import { WORLD_ID_VERIFIER, type WorldIdVerifier } from './world-id.verifier.js'
  * constraint, so one human can verify only one MUSO account.
  */
 @Injectable()
-export class WorldIdService {
+export class WorldIdService implements OnModuleInit {
   private readonly logger = new Logger(WorldIdService.name);
 
   constructor(
@@ -26,6 +26,11 @@ export class WorldIdService {
     private readonly config: ConfigService<Env, true>,
     @Inject(WORLD_ID_VERIFIER) private readonly verifier: WorldIdVerifier,
   ) {}
+
+  onModuleInit(): void {
+    if (this.enabled)
+      this.logger.log(`World ID on (${this.environment}, action "${this.action}")`);
+  }
 
   private get enabled(): boolean {
     return this.config.get('WORLD_ID_ENABLED', { infer: true });
