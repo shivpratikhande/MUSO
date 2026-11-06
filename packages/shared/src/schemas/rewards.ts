@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import type { ArcPayoutDto, ArcPoolInfo } from './arc.js';
 import { UuidSchema } from './common.js';
 
 /** The app sends a heartbeat this often while a video is playing on screen. */
@@ -78,6 +79,8 @@ export interface RewardPoolDto {
   allocatedMinor: number;
   unallocatedMinor: number | null;
   viewer: { canManage: boolean; canFund: boolean };
+  /** Set when the pool is funded by an on-chain Arc campaign (amounts are then USD cents). */
+  arc: ArcPoolInfo | null;
 }
 
 export interface LeaderboardEntry {
@@ -102,6 +105,8 @@ export interface RewardPoolDetail extends RewardPoolDto {
   leaderboard: LeaderboardEntry[];
   /** True while estimates are shown (not final). */
   estimated: boolean;
+  /** Arc pools: each creator's on-chain USDC payout after distribution. */
+  arcPayouts: ArcPayoutDto[];
   stats: {
     qualifiedSeconds: number;
     qualifiedViewers: number;

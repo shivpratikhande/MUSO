@@ -42,6 +42,9 @@ model User {
   showLocation    Boolean   @default(true) @map("show_location")
   /// Privacy: show earnings achievements publicly (M4+). Private by default.
   showEarnings    Boolean   @default(false) @map("show_earnings")
+  /// Arc (EVM) wallet for on-chain USDC rewards, lowercase. Linked by signing a challenge.
+  walletAddress   String?   @unique @map("wallet_address")
+  walletLinkedAt  DateTime? @map("wallet_linked_at")
   onboardedAt     DateTime? @map("onboarded_at")
   createdAt       DateTime  @default(now()) @map("created_at")
   updatedAt       DateTime  @updatedAt @map("updated_at")
@@ -75,6 +78,7 @@ model User {
   priceChanges      ContentPricingHistory[]
   rewardPools       RewardPool[]
   watchSessions     WatchSession[]
+  arcPayouts        ArcPayout[]
 
   @@map("users")
 }
@@ -840,6 +844,10 @@ model RewardPool {
   distributedAt       DateTime?        @map("distributed_at")
   /// Budget not allocated because of caps / too few eligible videos (returned in M7).
   unallocatedMinor    Int?             @map("unallocated_minor")
+  /// Arc: id of the sponsor-funded on-chain campaign (RewardCampaigns contract). Such pools are
+  /// in USD cents, funded on-chain (not via checkout) and paid out on-chain to creator wallets.
+  arcCampaignId       Int?             @unique @map("arc_campaign_id")
+  arcSponsor          String?          @map("arc_sponsor")
   createdAt           DateTime         @default(now()) @map("created_at")
   updatedAt           DateTime         @updatedAt @map("updated_at")
 
@@ -848,6 +856,7 @@ model RewardPool {
   payments    PaymentIntent[]
   allocations RewardAllocation[]
   earnings    Earning[]
+  arcPayouts  ArcPayout[]
 
   @@index([eventId])
   @@index([status, endsAt])
@@ -871,6 +880,39 @@ model RewardAllocation {
 
   @@unique([poolId, postId])
   @@map("reward_allocations")
+}
+
+enum ArcPayoutStatus {
+  /// Creator has no linked wallet yet; paid as soon as they link one (within the award window).
+  WAITING_WALLET
+  AWARDED
+  CLAIMED
+  /// Could not be paid on-chain (reason in `note`); the sponsor can reclaim it after the window.
+  SKIPPED
+}
+
+/// One creator's on-chain USDC payout from an Arc-funded pool (all their videos combined,
+/// because the contract awards each address once per campaign).
+model ArcPayout {
+  id          String          @id @default(uuid(7)) @db.Uuid
+  poolId      String          @map("pool_id") @db.Uuid
+  creatorId   String          @map("creator_id") @db.Uuid
+  /// USDC base units (6 decimals).
+  amountMicro BigInt          @map("amount_micro")
+  wallet      String?
+  status      ArcPayoutStatus @default(WAITING_WALLET)
+  awardTx     String?         @map("award_tx")
+  claimTx     String?         @map("claim_tx")
+  note        String?
+  createdAt   DateTime        @default(now()) @map("created_at")
+  updatedAt   DateTime        @updatedAt @map("updated_at")
+
+  pool    RewardPool @relation(fields: [poolId], references: [id], onDelete: Restrict)
+  creator User       @relation(fields: [creatorId], references: [id], onDelete: Restrict)
+
+  @@unique([poolId, creatorId])
+  @@index([status])
+  @@map("arc_payouts")
 }
 
 enum WatchSessionStatus {

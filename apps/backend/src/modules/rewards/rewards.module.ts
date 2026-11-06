@@ -10,5 +10,6 @@ import { WatchService } from './watch.service.js';
   imports: [PaymentsModule, ContentModule],
   controllers: [RewardsController],
   providers: [RewardsService, WatchService, RewardsWorker],
+  exports: [RewardsService],
 })
 export class RewardsModule {}

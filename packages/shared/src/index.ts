@@ -10,3 +10,4 @@ export * from './schemas/posts.js';
 export * from './schemas/money.js';
 export * from './rewards-math.js';
 export * from './schemas/rewards.js';
+export * from './schemas/arc.js';

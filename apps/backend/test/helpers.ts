@@ -115,6 +115,9 @@ export async function cleanupTestUsers(prisma: PrismaService): Promise<void> {
   await prisma.paymentIntent.deleteMany({
     where: { OR: [{ payerId: { in: ids } }, { payeeId: { in: ids } }] },
   });
+  await prisma.arcPayout.deleteMany({
+    where: { OR: [{ creatorId: { in: ids } }, { pool: { creatorId: { in: ids } } }] },
+  });
   await prisma.rewardPool.deleteMany({ where: { creatorId: { in: ids } } });
   await prisma.post.deleteMany({ where: { authorId: { in: ids } } });
   await prisma.event.deleteMany({ where: { organizerId: { in: ids } } });

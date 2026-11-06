@@ -7,6 +7,7 @@ import { AllExceptionsFilter } from './common/filters/all-exceptions.filter.js';
 import { ResponseEnvelopeInterceptor } from './common/interceptors/response-envelope.interceptor.js';
 import { validateEnv, type Env } from './config/env.js';
 import { DatabaseModule } from './database/database.module.js';
+import { ArcModule } from './modules/arc/arc.module.js';
 import { ArtistsModule } from './modules/artists/artists.module.js';
 import { AuthModule } from './modules/auth/auth.module.js';
 import { EventsModule } from './modules/events/events.module.js';
@@ -81,6 +82,7 @@ import { StorageModule } from './storage/storage.module.js';
     ReportsModule,
     PaymentsModule,
     RewardsModule,
+    ArcModule,
     X402Module,
   ],
   providers: [

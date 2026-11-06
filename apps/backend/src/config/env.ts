@@ -77,6 +77,23 @@ export const EnvSchema = z.object({
     .optional(),
   /** Fixed demo FX rate for quoting INR prices in USDC. */
   X402_INR_PER_USD: z.coerce.number().positive().default(84),
+  /** Arc: sponsor-funded USDC reward campaigns (RewardCampaigns contract, built in Arc Studio). */
+  ARC_ENABLED: z
+    .enum(['true', 'false'])
+    .default('false')
+    .transform((v) => v === 'true'),
+  ARC_RPC_URL: z.url().default('https://rpc.testnet.arc.network'),
+  ARC_CHAIN_ID: z.coerce.number().int().positive().default(5042002),
+  ARC_EXPLORER_URL: z.url().default('https://testnet.arcscan.app'),
+  ARC_REWARD_CAMPAIGNS_ADDRESS: z
+    .string()
+    .regex(/^0x[0-9a-fA-F]{40}$/, 'EVM address')
+    .optional(),
+  /** Allocator + relayer key: awards creators and submits their claims (pays gas in USDC). */
+  ARC_ALLOCATOR_PRIVATE_KEY: z
+    .string()
+    .regex(/^0x[0-9a-fA-F]{64}$/, '0x-prefixed 32-byte hex key')
+    .optional(),
   /** Run payment reconciliation + earnings release timers in this process. */
   PAYMENTS_WORKER_ENABLED: z
     .enum(['true', 'false'])
@@ -95,6 +112,11 @@ function checkEnv(env: Env): string[] {
   const problems: string[] = [];
   if (env.X402_ENABLED && !env.X402_PAY_TO) {
     problems.push('  - X402_PAY_TO: required when X402_ENABLED=true');
+  }
+  if (env.ARC_ENABLED && (!env.ARC_REWARD_CAMPAIGNS_ADDRESS || !env.ARC_ALLOCATOR_PRIVATE_KEY)) {
+    problems.push(
+      '  - ARC_REWARD_CAMPAIGNS_ADDRESS, ARC_ALLOCATOR_PRIVATE_KEY: required when ARC_ENABLED=true',
+    );
   }
   if (env.NODE_ENV === 'production' && env.PAYMENTS_PROVIDER === 'sandbox') {
     problems.push('  - PAYMENTS_PROVIDER: the sandbox provider cannot be used in production');

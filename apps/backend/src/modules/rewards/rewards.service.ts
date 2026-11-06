@@ -4,6 +4,7 @@ import { Prisma, type RewardPool } from '@muso/database';
 import {
   eventStatus,
   type CreateRewardPoolSchema,
+  type ArcPayoutDto,
   type EventLeaderboards,
   type LeaderboardEntry,
   type RewardPoolDetail,
@@ -157,7 +158,25 @@ export class RewardsService {
         flaggedSessions: flagged,
       };
     }
-    return { ...base, leaderboard, estimated, stats };
+    let arcPayouts: ArcPayoutDto[] = [];
+    if (pool.arcCampaignId) {
+      const explorer = this.config.get('ARC_EXPLORER_URL', { infer: true }).replace(/\/$/, '');
+      const tx = (h: string | null) => (h ? `${explorer}/tx/${h}` : null);
+      const rows = await this.prisma.arcPayout.findMany({
+        where: { poolId: id },
+        orderBy: { amountMicro: 'desc' },
+      });
+      arcPayouts = rows.map((r) => ({
+        creatorId: r.creatorId,
+        amountMicro: r.amountMicro.toString(),
+        wallet: r.wallet,
+        status: r.status,
+        awardTxUrl: tx(r.awardTx),
+        claimTxUrl: tx(r.claimTx),
+        note: r.note,
+      }));
+    }
+    return { ...base, leaderboard, estimated, stats, arcPayouts };
   }
 
   /** Distributes every pool whose window ended. Safe to run repeatedly / concurrently. */
@@ -187,6 +206,7 @@ export class RewardsService {
         data: { status: 'DISTRIBUTED', distributedAt: new Date(), unallocatedMinor: unallocated },
       });
       if (claim.count !== 1) return false;
+      const onChain = pool.arcCampaignId !== null;
 
       await tx.rewardAllocation.createMany({
         data: standings.map((s) => ({
@@ -201,6 +221,21 @@ export class RewardsService {
       });
 
       const paid = standings.filter((s) => s.shareMinor > 0);
+      if (onChain) {
+        // Funded on Arc: creators are paid in USDC on-chain (ArcService), not via INR earnings.
+        // The contract awards each address once, so a creator's videos are combined.
+        const byCreator = new Map<string, number>();
+        for (const s of paid)
+          byCreator.set(s.creatorId, (byCreator.get(s.creatorId) ?? 0) + s.shareMinor);
+        await tx.arcPayout.createMany({
+          data: [...byCreator].map(([creatorId, cents]) => ({
+            poolId,
+            creatorId,
+            amountMicro: BigInt(cents) * 10_000n,
+          })),
+        });
+        return true;
+      }
       const lines: { account: string; amountMinor: number; userId?: string }[] = [];
       for (const s of paid) {
         await tx.earning.create({
@@ -369,6 +404,15 @@ export class RewardsService {
       status: poolStatus(p),
       allocatedMinor: allocated,
       unallocatedMinor: p.unallocatedMinor,
+      arc: p.arcCampaignId
+        ? {
+            campaignId: p.arcCampaignId,
+            contract: this.config.get('ARC_REWARD_CAMPAIGNS_ADDRESS', { infer: true }) ?? '',
+            sponsor: p.arcSponsor ?? '',
+            chainId: this.config.get('ARC_CHAIN_ID', { infer: true }),
+            contractUrl: `${this.config.get('ARC_EXPLORER_URL', { infer: true }).replace(/\/$/, '')}/address/${this.config.get('ARC_REWARD_CAMPAIGNS_ADDRESS', { infer: true }) ?? ''}`,
+          }
+        : null,
       viewer: {
         canManage,
         canFund:

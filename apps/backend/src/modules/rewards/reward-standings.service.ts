@@ -91,6 +91,8 @@ export class RewardStandings {
     const pools = await this.prisma.rewardPool.findMany({
       where: {
         status: 'FUNDED',
+        // INR earnings only; Arc pools pay USDC on-chain and are shown on the pool itself.
+        currency: 'INR',
         startsAt: { lte: now },
         event: { posts: { some: { authorId: creatorId, type: 'VIDEO', deletedAt: null } } },
       },

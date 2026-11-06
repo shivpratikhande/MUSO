@@ -264,8 +264,9 @@ A UI that exists but isn't wired to the backend is `[~]`, never `[x]`.
 - [x] Deployed to Arc testnet: `0x7cbbb1f0e9d7301c16e6d544f9a55d13030f74eb`
 - [x] First live campaign: create → awardMany → relayed claimFor (see `packages/contracts/ARC_STUDIO.md`)
 - [x] Final Studio source in `packages/contracts/studio/`; runtime bytecode matches the live contract
-- [ ] Backend: Milestone 5 watch-time split → USDC shares → `awardMany` via allocator → relayed `claimFor`
-- [ ] Creator wallet linking (signature proof) + creator claim status in app
+- [x] Backend: pool funded by linking an on-chain campaign (checked on-chain: MUSO allocator, sponsor = organizer's verified wallet, timing) → Milestone 5 watch-time split → per-creator USDC → `awardMany` → relayed `claimFor` (worker, idempotent, late wallets paid within the award window)
+- [x] Creator wallet linking API with signature proof (EOA + smart wallets via ERC-1271/6492)
+- [ ] App: link-wallet screen + Arc funding/payout status on the pool screen
 - [ ] Architecture diagram, docs of core functions + Circle tools in README
 - [ ] Demo video showing Arc Studio
 
