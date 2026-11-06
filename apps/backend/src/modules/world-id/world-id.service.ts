@@ -5,6 +5,7 @@ import type { HumanStatus, VerifyHumanInput, WorldIdContext } from '@muso/shared
 import { hashSignal } from '@worldcoin/idkit-core/hashing';
 import { Nullifier } from '@worldcoin/idkit-core/nullifier';
 import { signRequest } from '@worldcoin/idkit-core/signing';
+import { privateKeyToAccount } from 'viem/accounts';
 import type { Env } from '../../config/env.js';
 import { badRequest, conflict, isUniqueViolation } from '../../common/errors.js';
 import { PrismaService } from '../../database/prisma.service.js';
@@ -29,7 +30,16 @@ export class WorldIdService implements OnModuleInit {
 
   onModuleInit(): void {
     if (this.enabled)
-      this.logger.log(`World ID on (${this.environment}, action "${this.action}")`);
+      this.logger.log(
+        `World ID on (${this.environment}, action "${this.action}", signer ${this.signerAddress()})`,
+      );
+  }
+
+  /** Public address of the RP signing key: must match "Signer address" in the Developer Portal. */
+  signerAddress(): string {
+    const key = this.config.get('WORLD_ID_SIGNING_KEY', { infer: true });
+    if (!key) return 'none';
+    return privateKeyToAccount((key.startsWith('0x') ? key : `0x${key}`) as `0x${string}`).address;
   }
 
   private get enabled(): boolean {
