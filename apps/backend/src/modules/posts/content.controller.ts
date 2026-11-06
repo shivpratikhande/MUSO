@@ -2,6 +2,7 @@ import {
   Body,
   Controller,
   Delete,
+  Patch,
   Get,
   HttpCode,
   HttpStatus,
@@ -20,6 +21,7 @@ import {
   FeedQuerySchema,
   PostListQuerySchema,
   PresignPostMediaSchema,
+  PricingSchema,
   type CommentDto,
   type CreateCommentInput,
   type CursorQuery,
@@ -106,6 +108,21 @@ export class ContentController {
   @HttpCode(HttpStatus.NO_CONTENT)
   async remove(@Param('id', uuid) id: string, @CurrentUser() u: RequestUser): Promise<void> {
     await this.posts.delete(id, u);
+  }
+
+  @Patch('posts/:id/pricing')
+  pricing(
+    @Param('id', uuid) id: string,
+    @CurrentUser() u: RequestUser,
+    @Body(new ZodValidationPipe(PricingSchema)) body: z.output<typeof PricingSchema>,
+  ): Promise<PostDto> {
+    return this.posts.updatePricing(id, body, u);
+  }
+
+  @Throttle({ default: { limit: 30, ttl: 60_000 } })
+  @Get('posts/:id/download')
+  download(@Param('id', uuid) id: string, @CurrentUser() u: RequestUser): Promise<{ url: string }> {
+    return this.posts.downloadUrl(id, u);
   }
 
   @Put('posts/:id/like')

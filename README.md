@@ -85,6 +85,9 @@ cd apps/mobile && npx expo run:ios
 On a physical phone, use your Mac's LAN IP (`ipconfig getifaddr en0`) in **two** places:
 - `apps/mobile/.env` → `EXPO_PUBLIC_API_URL=http://<LAN-IP>:4000/v1`
 - `.env` → `S3_PUBLIC_ENDPOINT=http://<LAN-IP>:9000` (so the phone can upload and load images)
+- `.env` → `PUBLIC_API_URL=http://<LAN-IP>:4000` (so the phone can open the checkout page)
+
+If you change Wi-Fi, your LAN IP changes. Update all three and restart the API and Metro.
 
 Quickest way to try it without Xcode is **Expo Go**. Sign in to the same Expo account on the Mac (`npx expo login`) and in the Expo Go app, then scan the QR code from `pnpm dev:mobile`.
 
@@ -146,6 +149,20 @@ Quickest way to try it without Xcode is **Expo Go**. Sign in to the same Expo ac
 4. Originals are never served. Derivatives are served through short-lived **signed URLs**, so Milestone 4 can gate paid content.
 
 Fan captures are never marked official. A post is only "official" when the tagged artist posts it themselves.
+
+## Money (Milestone 4)
+
+- **Amounts** are integers in paise. There are no floats anywhere. Fees are snapshotted per payment in basis points.
+- **Modes:** Free, Pay to unlock, Pay what you want (public or gated), plus tips on any post.
+- **Consent:** fans can only sell captures of artists who set "Fans can earn". Artists can always sell their own content.
+- **Flow:**
+  1. `POST /v1/payments/checkout` (with an idempotency key) returns a hosted `checkoutUrl`.
+  2. The app opens it in an in-app browser.
+  3. The app calls `POST /v1/payments/:id/verify`. The **server** asks the provider for the result, checking amount and currency, then claims PENDING→SUCCEEDED exactly once.
+  4. In one database transaction it writes: entitlement (unlocks), earning (PENDING), and a balanced ledger journal.
+- **Background:** a timer reconciles payments the app never verified, and moves earnings to AVAILABLE after `EARNINGS_HOLD_MINUTES`.
+- **Ledger:** `ledger_entries` is append-only (a DB trigger blocks UPDATE and DELETE), and every journal must sum to zero (a deferred DB trigger).
+- **Provider:** `PAYMENTS_PROVIDER=sandbox` simulates a hosted checkout with **no real money**, and the API refuses to boot with it in production. Real providers implement `PaymentProvider` (`apps/backend/src/modules/payments/providers`).
 
 ## Security notes
 

@@ -101,6 +101,13 @@ export async function cleanupTestUsers(prisma: PrismaService): Promise<void> {
     select: { id: true },
   });
   const ids = users.map((u) => u.id);
+  // Money rows reference users without cascades (financial records are never cascaded away),
+  // so test cleanup removes them explicitly. Ledger entries are append-only and stay.
+  await prisma.earning.deleteMany({ where: { creatorId: { in: ids } } });
+  await prisma.contentEntitlement.deleteMany({ where: { userId: { in: ids } } });
+  await prisma.paymentIntent.deleteMany({
+    where: { OR: [{ payerId: { in: ids } }, { payeeId: { in: ids } }] },
+  });
   await prisma.post.deleteMany({ where: { authorId: { in: ids } } });
   await prisma.event.deleteMany({ where: { organizerId: { in: ids } } });
   await prisma.user.deleteMany({ where: { id: { in: ids } } });

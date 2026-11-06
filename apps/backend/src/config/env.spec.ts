@@ -7,6 +7,8 @@ const base = {
   S3_PUBLIC_ENDPOINT: 'http://localhost:9000',
   S3_ACCESS_KEY_ID: 'k',
   S3_SECRET_ACCESS_KEY: 's',
+  PAYMENTS_SIGNING_SECRET: 'y'.repeat(32),
+  PUBLIC_API_URL: 'http://localhost:4000',
 };
 
 describe('validateEnv', () => {
@@ -44,5 +46,13 @@ describe('validateEnv secrets', () => {
         S3_SECRET_ACCESS_KEY: 's',
       }),
     ).toThrow(/JWT_ACCESS_SECRET/);
+  });
+});
+
+describe('validateEnv payments', () => {
+  it('refuses the sandbox payment provider in production', () => {
+    expect(() => validateEnv({ ...base, NODE_ENV: 'production' })).toThrow(
+      /sandbox provider cannot be used in production/,
+    );
   });
 });

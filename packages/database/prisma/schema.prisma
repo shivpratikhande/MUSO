@@ -53,21 +53,26 @@ model User {
   artistProfile     ArtistProfile?
   creatorProfile    CreatorProfile?
   organizerProfile  OrganizerProfile?
-  organizedEvents   Event[]           @relation("EventOrganizer")
-  reviewedEvents    Event[]           @relation("EventReviewer")
+  organizedEvents   Event[]                 @relation("EventOrganizer")
+  reviewedEvents    Event[]                 @relation("EventReviewer")
   eventFollows      EventFollow[]
   posts             Post[]
   likes             Like[]
   savedPosts        SavedPost[]
   comments          Comment[]
-  following         Follow[]          @relation("Follower")
-  followers         Follow[]          @relation("Followee")
-  blocking          Block[]           @relation("Blocker")
-  blockedBy         Block[]           @relation("Blocked")
-  reports           Report[]          @relation("Reporter")
-  notifications     Notification[]    @relation("NotificationRecipient")
-  notificationsSent Notification[]    @relation("NotificationActor")
+  following         Follow[]                @relation("Follower")
+  followers         Follow[]                @relation("Followee")
+  blocking          Block[]                 @relation("Blocker")
+  blockedBy         Block[]                 @relation("Blocked")
+  reports           Report[]                @relation("Reporter")
+  notifications     Notification[]          @relation("NotificationRecipient")
+  notificationsSent Notification[]          @relation("NotificationActor")
   interests         UserInterest[]
+  paymentsMade      PaymentIntent[]         @relation("Payer")
+  paymentsReceived  PaymentIntent[]         @relation("Payee")
+  entitlements      ContentEntitlement[]
+  earnings          Earning[]
+  priceChanges      ContentPricingHistory[]
 
   @@map("users")
 }
@@ -382,6 +387,15 @@ model Post {
   failureReason     String?                 @map("failure_reason")
   moderationStatus  ModerationStatus        @default(VISIBLE) @map("moderation_status")
   monetizationMode  MonetizationMode        @default(FREE) @map("monetization_mode")
+  /// Price in minor units (paise). PAY_TO_UNLOCK only.
+  priceMinor        Int?                    @map("price_minor")
+  /// PAY_WHAT_YOU_WANT: suggested and optional minimum, in minor units.
+  suggestedMinor    Int?                    @map("suggested_minor")
+  minimumMinor      Int?                    @map("minimum_minor")
+  /// PAY_WHAT_YOU_WANT: true = viewers must contribute to see it; false = public, contributions optional.
+  pwywGated         Boolean                 @default(true) @map("pwyw_gated")
+  currency          String                  @default("INR") @db.Char(3)
+  tipsEnabled       Boolean                 @default(true) @map("tips_enabled")
   /// True only when the author is one of the tagged artists.
   isOfficial        Boolean                 @default(false) @map("is_official")
   permissionStatus  ContentPermissionStatus @default(NOT_REQUESTED) @map("permission_status")
@@ -398,14 +412,18 @@ model Post {
   updatedAt         DateTime                @updatedAt @map("updated_at")
   deletedAt         DateTime?               @map("deleted_at")
 
-  author        User           @relation(fields: [authorId], references: [id], onDelete: Cascade)
-  event         Event?         @relation(fields: [eventId], references: [id], onDelete: SetNull)
-  media         PostMedia[]
-  artists       PostArtist[]
-  likes         Like[]
-  saves         SavedPost[]
-  comments      Comment[]
-  notifications Notification[]
+  author         User                    @relation(fields: [authorId], references: [id], onDelete: Cascade)
+  event          Event?                  @relation(fields: [eventId], references: [id], onDelete: SetNull)
+  media          PostMedia[]
+  artists        PostArtist[]
+  likes          Like[]
+  saves          SavedPost[]
+  comments       Comment[]
+  notifications  Notification[]
+  pricingHistory ContentPricingHistory[]
+  entitlements   ContentEntitlement[]
+  payments       PaymentIntent[]
+  earnings       Earning[]
 
   @@unique([authorId, clientRequestId])
   @@index([status, moderationStatus, publishedAt])
@@ -425,6 +443,10 @@ model PostMedia {
   originalKey String    @unique @map("original_key")
   displayKey  String?   @map("display_key")
   thumbKey    String?   @map("thumb_key")
+  /// Heavily blurred preview shown on locked content.
+  previewKey  String?   @map("preview_key")
+  /// Full-resolution, metadata-stripped photo for buyers' downloads.
+  fullKey     String?   @map("full_key")
   mimeType    String    @map("mime_type")
   sizeBytes   Int       @map("size_bytes")
   width       Int?
@@ -578,6 +600,8 @@ enum NotificationType {
   TAGGED_IN_POST
   POST_PUBLISHED
   POST_FAILED
+  CONTENT_PURCHASED
+  TIP_RECEIVED
 }
 
 model Notification {
@@ -598,4 +622,175 @@ model Notification {
   @@index([userId, createdAt])
   @@index([userId, readAt])
   @@map("notifications")
+}
+
+// ─────────────────────────────── Money (M4) ───────────────────────────────
+// All amounts are integers in minor units (paise). No floats anywhere.
+
+/// Every change of a post's price/mode. Buyers keep access regardless of later changes.
+model ContentPricingHistory {
+  id             String           @id @default(uuid(7)) @db.Uuid
+  postId         String           @map("post_id") @db.Uuid
+  changedById    String           @map("changed_by_id") @db.Uuid
+  mode           MonetizationMode
+  priceMinor     Int?             @map("price_minor")
+  suggestedMinor Int?             @map("suggested_minor")
+  minimumMinor   Int?             @map("minimum_minor")
+  pwywGated      Boolean          @map("pwyw_gated")
+  tipsEnabled    Boolean          @map("tips_enabled")
+  createdAt      DateTime         @default(now()) @map("created_at")
+
+  post      Post @relation(fields: [postId], references: [id], onDelete: Cascade)
+  changedBy User @relation(fields: [changedById], references: [id], onDelete: Cascade)
+
+  @@index([postId, createdAt])
+  @@map("content_pricing_history")
+}
+
+enum PaymentKind {
+  UNLOCK
+  TIP
+}
+
+enum PaymentStatus {
+  /// Intent created, checkout not completed yet.
+  PENDING
+  SUCCEEDED
+  FAILED
+  CANCELLED
+  EXPIRED
+  REFUNDED
+}
+
+/// A payer's attempt to pay. Status is only ever advanced by the server after verifying with the
+/// provider — never from client-submitted data.
+model PaymentIntent {
+  id             String        @id @default(uuid(7)) @db.Uuid
+  payerId        String        @map("payer_id") @db.Uuid
+  payeeId        String        @map("payee_id") @db.Uuid
+  postId         String?       @map("post_id") @db.Uuid
+  kind           PaymentKind
+  amountMinor    Int           @map("amount_minor")
+  currency       String        @default("INR") @db.Char(3)
+  /// Fee snapshot at creation (basis points), so later fee changes don't alter old payments.
+  feeBps         Int           @map("fee_bps")
+  status         PaymentStatus @default(PENDING)
+  provider       String
+  providerRef    String?       @map("provider_ref")
+  checkoutUrl    String?       @map("checkout_url")
+  /// Client-supplied idempotency key, unique per payer.
+  idempotencyKey String        @map("idempotency_key")
+  message        String?
+  failureReason  String?       @map("failure_reason")
+  expiresAt      DateTime      @map("expires_at")
+  succeededAt    DateTime?     @map("succeeded_at")
+  createdAt      DateTime      @default(now()) @map("created_at")
+  updatedAt      DateTime      @updatedAt @map("updated_at")
+
+  payer       User                @relation("Payer", fields: [payerId], references: [id])
+  payee       User                @relation("Payee", fields: [payeeId], references: [id])
+  post        Post?               @relation(fields: [postId], references: [id], onDelete: SetNull)
+  entitlement ContentEntitlement?
+  earning     Earning?
+
+  @@unique([payerId, idempotencyKey])
+  @@unique([provider, providerRef])
+  @@index([status, createdAt])
+  @@index([payerId, createdAt])
+  @@index([payeeId, createdAt])
+  @@map("payment_intents")
+}
+
+/// Permanent access to paid content. Survives price changes.
+model ContentEntitlement {
+  id        String   @id @default(uuid(7)) @db.Uuid
+  userId    String   @map("user_id") @db.Uuid
+  postId    String   @map("post_id") @db.Uuid
+  paymentId String   @unique @map("payment_id") @db.Uuid
+  createdAt DateTime @default(now()) @map("created_at")
+
+  user    User          @relation(fields: [userId], references: [id], onDelete: Cascade)
+  post    Post          @relation(fields: [postId], references: [id], onDelete: Cascade)
+  payment PaymentIntent @relation(fields: [paymentId], references: [id])
+
+  @@unique([userId, postId])
+  @@index([postId])
+  @@map("content_entitlements")
+}
+
+enum EarningSource {
+  TIP
+  PHOTO_SALE
+  VIDEO_SALE
+  WATCH_REWARD
+}
+
+/// Lifecycle: ESTIMATED (rewards, M5) → PENDING (paid, in hold window) → AVAILABLE (withdrawable)
+/// → PAID (paid out, M7). REVERSED on refunds/chargebacks. Each transition posts ledger entries.
+enum EarningStatus {
+  ESTIMATED
+  PENDING
+  CONFIRMED
+  AVAILABLE
+  PAID
+  REVERSED
+}
+
+model Earning {
+  id          String        @id @default(uuid(7)) @db.Uuid
+  creatorId   String        @map("creator_id") @db.Uuid
+  source      EarningSource
+  paymentId   String?       @unique @map("payment_id") @db.Uuid
+  postId      String?       @map("post_id") @db.Uuid
+  grossMinor  Int           @map("gross_minor")
+  feeMinor    Int           @map("fee_minor")
+  netMinor    Int           @map("net_minor")
+  currency    String        @default("INR") @db.Char(3)
+  status      EarningStatus
+  availableAt DateTime      @map("available_at")
+  createdAt   DateTime      @default(now()) @map("created_at")
+  updatedAt   DateTime      @updatedAt @map("updated_at")
+
+  creator User           @relation(fields: [creatorId], references: [id])
+  payment PaymentIntent? @relation(fields: [paymentId], references: [id])
+  post    Post?          @relation(fields: [postId], references: [id], onDelete: SetNull)
+
+  @@index([creatorId, status])
+  @@index([status, availableAt])
+  @@map("earnings")
+}
+
+/// Double-entry, append-only ledger. Every journal (one business event) sums to zero.
+/// UPDATE and DELETE are blocked by a database trigger.
+model LedgerEntry {
+  id          String   @id @default(uuid(7)) @db.Uuid
+  journalId   String   @map("journal_id") @db.Uuid
+  /// e.g. "provider:sandbox:clearing", "creator:<uuid>:pending", "platform:fees"
+  account     String
+  userId      String?  @map("user_id") @db.Uuid
+  amountMinor Int      @map("amount_minor")
+  currency    String   @db.Char(3)
+  /// What happened: PAYMENT_CAPTURED, EARNING_RELEASED, ...
+  event       String
+  paymentId   String?  @map("payment_id") @db.Uuid
+  earningId   String?  @map("earning_id") @db.Uuid
+  createdAt   DateTime @default(now()) @map("created_at")
+
+  @@index([journalId])
+  @@index([account])
+  @@index([userId, createdAt])
+  @@map("ledger_entries")
+}
+
+/// Test-only stand-in for an external payment processor's records (sandbox provider).
+model SandboxPayment {
+  ref         String    @id
+  amountMinor Int       @map("amount_minor")
+  currency    String    @db.Char(3)
+  status      String
+  returnUrl   String    @map("return_url")
+  createdAt   DateTime  @default(now()) @map("created_at")
+  completedAt DateTime? @map("completed_at")
+
+  @@map("sandbox_payments")
 }

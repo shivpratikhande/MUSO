@@ -35,6 +35,15 @@ export default function AppLayout() {
       <Stack.Screen name="users/[id]" options={{ title: '' }} />
       <Stack.Screen name="hashtags/[tag]" options={{ title: '' }} />
       <Stack.Screen name="saved" options={{ title: 'Saved' }} />
+      <Stack.Screen name="checkout" options={{ title: '', presentation: 'modal' }} />
+      <Stack.Screen
+        name="payments/return"
+        options={{ title: '', presentation: 'transparentModal', animation: 'none' }}
+      />
+      <Stack.Screen name="pricing/[id]" options={{ title: 'Price', presentation: 'modal' }} />
+      <Stack.Screen name="earnings" options={{ title: 'Earnings' }} />
+      <Stack.Screen name="purchases" options={{ title: 'Purchases' }} />
+      <Stack.Screen name="library" options={{ title: 'Library' }} />
     </Stack>
   );
 }

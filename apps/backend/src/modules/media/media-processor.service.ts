@@ -13,6 +13,7 @@ import { PrismaService } from '../../database/prisma.service.js';
 import { StorageService } from '../../storage/storage.service.js';
 import { NotificationsService } from '../notifications/notifications.service.js';
 import { PostsService } from '../posts/posts.service.js';
+import { MediaDerivatives } from './media-derivatives.service.js';
 
 const run = promisify(execFile);
 
@@ -45,6 +46,7 @@ export class MediaProcessor {
     private readonly posts: PostsService,
     private readonly notifications: NotificationsService,
     private readonly config: ConfigService<Env, true>,
+    private readonly derivatives: MediaDerivatives,
   ) {}
 
   async process(postId: string, finalAttempt: boolean): Promise<void> {
@@ -64,13 +66,13 @@ export class MediaProcessor {
         media.type === 'PHOTO'
           ? await this.photo(postId, original, dir)
           : await this.video(postId, original, dir);
-      await this.prisma.$transaction([
-        this.prisma.postMedia.update({ where: { id: media.id }, data: derived }),
-        this.prisma.post.update({
-          where: { id: postId },
-          data: { status: 'PUBLISHED', publishedAt: new Date(), failureReason: null },
-        }),
-      ]);
+      await this.prisma.postMedia.update({ where: { id: media.id }, data: derived });
+      // The blurred preview must exist before publishing, so locked posts never show nothing.
+      await this.derivatives.ensurePreview(postId);
+      await this.prisma.post.update({
+        where: { id: postId },
+        data: { status: 'PUBLISHED', publishedAt: new Date(), failureReason: null },
+      });
       await this.posts.onPublished(postId);
       this.logger.log(`Published post ${postId}`);
     } catch (err) {

@@ -15,6 +15,7 @@ import { HealthModule } from './modules/health/health.module.js';
 import { MailModule } from './modules/mail/mail.module.js';
 import { MeModule } from './modules/me/me.module.js';
 import { NotificationsModule } from './modules/notifications/notifications.module.js';
+import { PaymentsModule } from './modules/payments/payments.module.js';
 import { ContentModule } from './modules/posts/content.module.js';
 import { ReportsModule } from './modules/reports/reports.module.js';
 import { UploadsModule } from './modules/uploads/uploads.module.js';
@@ -76,6 +77,7 @@ import { StorageModule } from './storage/storage.module.js';
     NotificationsModule,
     ContentModule,
     ReportsModule,
+    PaymentsModule,
   ],
   providers: [
     { provide: APP_GUARD, useClass: ThrottlerGuard },

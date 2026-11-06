@@ -10,12 +10,12 @@ A UI that exists but isn't wired to the backend is `[~]`, never `[x]`.
 
 ## 📍 Current status — 2026-11-06
 
-**Milestone 3 built. The backend is fully tested, including real photo and video processing. The mobile screens haven't been tapped through on a phone yet.**
-- ✅ Backend: **79/79 e2e tests** pass. They cover photo processing (EXIF and GPS stripped), video transcoding, the 3-minute limit, idempotent publish, recording-policy and artist-consent rules, likes, saves, comments and replies, follows, blocks, every feed tab, reports with auto-hide, and notifications. Every monorepo typecheck, lint and test task passes.
+**Milestone 4 built. The money flow works end to end on the sandbox provider (no real money). The new mobile screens haven't been tapped through on a phone yet.**
+- ✅ Backend: **95/95 e2e tests** pass. They cover the full hosted checkout, exactly-once fulfilment under concurrent verification, idempotency keys, declines, cancellations, expiry, reconciliation, pay-what-you-want, tips, price changes where buyers keep access, earnings moving from pending to available, and the database refusing ledger edits and unbalanced journals. Every monorepo task passes.
 - ✅ Mobile: typecheck, ESLint and the iOS bundle pass.
-- ⚠️ On-device pass still needed for the Milestone 2 and 3 screens: capture, compose, feed, post detail, activity, profiles.
-- ℹ️ Video trimming uses the native iOS editor in the picker. Android has no trim UI yet.
-- ⏭ Foundry / contracts moved to Milestone 6.
+- ⚠️ **Sandbox payments only.** A real provider (Razorpay or Cashfree for INR, or Coinbase on Base Sepolia in M6) plugs into `PaymentProvider`. Real money waits for KYC, tax and regulatory review.
+- ⚠️ On-device pass still needed for the Milestone 2–4 screens.
+- ⏭ Refunds, reversals and payouts are designed into the ledger and statuses and get built in Milestone 7.
 
 ---
 
@@ -167,35 +167,35 @@ A UI that exists but isn't wired to the backend is `[~]`, never `[x]`.
 ## Milestone 4 — Monetization (P0 money flow)
 
 ### Payment architecture
-- [ ] Payment provider abstraction (provider-independent business logic)
-- [ ] Idempotency keys on every financial operation
-- [ ] Payment verified server-side before any entitlement / ledger update
-- [ ] Double-entry financial ledger (immutable, auditable)
-- [ ] Platform fee calculation
+- [x] Payment provider abstraction (provider-independent business logic) — sandbox provider implemented
+- [x] Idempotency keys on every financial operation (checkout keys, PENDING→SUCCEEDED claim, earning release claim)
+- [x] Payment verified server-side with the provider (amount + currency checked) before any entitlement / ledger update
+- [x] Double-entry financial ledger (DB triggers: append-only + balanced journals)
+- [x] Platform fee calculation (integer paise, snapshot per payment; 10% sales / 5% tips, configurable)
 
 ### Monetization modes
-- [ ] Free content (+ tips)
-- [ ] Pay to unlock (fixed price)
-- [ ] Pay what you want (suggested + optional minimum, public or gated)
-- [ ] Tips (₹10 / ₹20 / ₹50 / ₹100 / custom)
-- [ ] Pricing history (existing buyers keep access after price change)
+- [x] Free content (+ tips)
+- [x] Pay to unlock (fixed price; server always uses its current price)
+- [x] Pay what you want (suggested + optional minimum, public or gated)
+- [x] Tips (₹10 / ₹20 / ₹50 / ₹100 / custom, optional message)
+- [x] Pricing history (existing buyers keep access after price change)
 
 ### Purchases & access
-- [ ] Locked content preview (blurred / watermarked)
-- [ ] Unlock + purchase confirmation screens
-- [ ] Persistent content entitlements
-- [ ] Secure media access (short-lived signed URLs, entitlement-checked)
-- [ ] Purchase history
-- [ ] Purchased content library
-- [ ] High-resolution photo download for buyers
-- [ ] Clear licensing terms on purchase (no implied copyright transfer)
+- [x] Locked content preview (blurred; real media URL never sent to non-buyers)
+- [x] Unlock + purchase confirmation screens
+- [x] Persistent content entitlements
+- [x] Secure media access (short-lived signed URLs, entitlement-checked)
+- [x] Purchase history
+- [x] Purchased content library
+- [x] High-resolution photo download for buyers (metadata stripped)
+- [x] Clear licensing terms on purchase (no implied copyright transfer)
 
 ### Creator earnings dashboard
-- [ ] Totals: earnings, tips, photo sales, video sales, watch rewards, fees, net
-- [ ] Status buckets: Estimated · Pending · Confirmed · Available · Paid · Reversed
-- [ ] Pending/estimated never shown as withdrawable
-- [ ] Top-performing content
-- [ ] Purchase + payout history
+- [x] Totals: earnings, tips, photo sales, video sales, watch rewards, fees, net
+- [x] Status buckets: Estimated · Pending · Confirmed · Available · Paid · Reversed (Estimated/Paid/Reversed populate in M5/M7)
+- [x] Pending/estimated never shown as withdrawable (hold window, then release job)
+- [x] Top-performing content
+- [~] Purchase history done; payout history comes with payouts (M7)
 
 ---
 
@@ -229,7 +229,7 @@ A UI that exists but isn't wired to the backend is `[~]`, never `[x]`.
 - [ ] Artist licensing requests (request → creator approves/declines)
 - [ ] Artist features approved content
 - [ ] Organizer dashboard
-- [ ] Copyright / takedown requests + moderation queue
+- [~] Copyright / takedown requests + moderation queue (reports + admin API done in M3; app screen pending)
 
 ---
 

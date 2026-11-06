@@ -5,6 +5,7 @@ import { useState } from 'react';
 import {
   Alert,
   KeyboardAvoidingView,
+  Linking,
   Platform,
   Pressable,
   ScrollView,
@@ -161,6 +162,21 @@ export default function PostScreen() {
         keyboardShouldPersistTaps="handled"
       >
         <PostCard post={post.data} detail onRemoved={() => router.back()} />
+        {post.data.status === 'PUBLISHED' &&
+        post.data.type === 'PHOTO' &&
+        post.data.unlocked &&
+        (post.data.purchased || post.data.viewer.isAuthor) ? (
+          <Button
+            label="Download full resolution"
+            variant="ghost"
+            onPress={() =>
+              void api.payments
+                .download(post.data.id)
+                .then(({ url }) => Linking.openURL(url))
+                .catch((e) => Alert.alert('Couldn’t download', errorMessage(e)))
+            }
+          />
+        ) : null}
         {post.data.status === 'PUBLISHED' ? (
           <View style={{ gap: t.space.lg }}>
             <AppText variant="label" tone="muted">

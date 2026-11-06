@@ -47,6 +47,27 @@ export const EnvSchema = z.object({
     .transform((v) => v === 'true'),
   FFMPEG_PATH: z.string().default('ffmpeg'),
   FFPROBE_PATH: z.string().default('ffprobe'),
+  /** Payment provider. `sandbox` simulates a hosted checkout (no real money) and is refused in production. */
+  PAYMENTS_PROVIDER: z.enum(['sandbox']).default('sandbox'),
+  /** HMAC secret for signed checkout links. Generate with `openssl rand -base64 48`. */
+  PAYMENTS_SIGNING_SECRET: z.string().min(32, 'must be at least 32 characters'),
+  /** Base URL the phone uses to reach this API (for hosted checkout pages). */
+  PUBLIC_API_URL: z.url(),
+  /** Platform fee in basis points (1000 = 10%). */
+  PLATFORM_FEE_BPS_SALES: z.coerce.number().int().min(0).max(5000).default(1000),
+  PLATFORM_FEE_BPS_TIPS: z.coerce.number().int().min(0).max(5000).default(500),
+  /** Hold window before pending earnings become available (refund/chargeback buffer). */
+  EARNINGS_HOLD_MINUTES: z.coerce
+    .number()
+    .int()
+    .min(0)
+    .max(60 * 24 * 60)
+    .default(7 * 24 * 60),
+  /** Run payment reconciliation + earnings release timers in this process. */
+  PAYMENTS_WORKER_ENABLED: z
+    .enum(['true', 'false'])
+    .default('true')
+    .transform((v) => v === 'true'),
   S3_AUTO_CREATE_BUCKETS: z
     .enum(['true', 'false'])
     .default('false')
@@ -54,6 +75,15 @@ export const EnvSchema = z.object({
 });
 
 export type Env = z.infer<typeof EnvSchema>;
+
+/** Cross-field rules. */
+function checkEnv(env: Env): string[] {
+  const problems: string[] = [];
+  if (env.NODE_ENV === 'production' && env.PAYMENTS_PROVIDER === 'sandbox') {
+    problems.push('  - PAYMENTS_PROVIDER: the sandbox provider cannot be used in production');
+  }
+  return problems;
+}
 
 export function validateEnv(raw: Record<string, unknown>): Env {
   const result = EnvSchema.safeParse(raw);
@@ -63,5 +93,8 @@ export function validateEnv(raw: Record<string, unknown>): Env {
       .join('\n');
     throw new Error(`Invalid environment configuration:\n${issues}`);
   }
+  const problems = checkEnv(result.data);
+  if (problems.length)
+    throw new Error(`Invalid environment configuration:\n${problems.join('\n')}`);
   return result.data;
 }

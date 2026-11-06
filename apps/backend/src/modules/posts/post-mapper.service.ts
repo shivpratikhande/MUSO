@@ -15,6 +15,20 @@ export const postInclude = {
 
 export type PostRow = Prisma.PostGetPayload<{ include: typeof postInclude }>;
 
+/**
+ * Whether a viewer may see a post's full media. Free and public pay-what-you-want posts are
+ * open; paid posts need an entitlement (authors and admins always see their content).
+ */
+export function canViewFullMedia(
+  r: Pick<PostRow, 'monetizationMode' | 'pwywGated' | 'authorId'>,
+  viewer: RequestUser,
+  purchased: boolean,
+): boolean {
+  if (r.monetizationMode === 'FREE') return true;
+  if (r.monetizationMode === 'PAY_WHAT_YOU_WANT' && !r.pwywGated) return true;
+  return purchased || r.authorId === viewer.id || viewer.roles.includes('ADMIN');
+}
+
 /** Turns post rows into DTOs with signed media URLs and per-viewer flags (batched). */
 @Injectable()
 export class PostMapper {
@@ -27,7 +41,7 @@ export class PostMapper {
     if (!rows.length) return [];
     const ids = rows.map((r) => r.id);
     const authorIds = [...new Set(rows.map((r) => r.authorId))];
-    const [likes, saves, follows] = await Promise.all([
+    const [likes, saves, follows, ents] = await Promise.all([
       this.prisma.like.findMany({
         where: { userId: viewer.id, postId: { in: ids } },
         select: { postId: true },
@@ -40,16 +54,22 @@ export class PostMapper {
         where: { followerId: viewer.id, followeeId: { in: authorIds } },
         select: { followeeId: true },
       }),
+      this.prisma.contentEntitlement.findMany({
+        where: { userId: viewer.id, postId: { in: ids } },
+        select: { postId: true },
+      }),
     ]);
     const liked = new Set(likes.map((l) => l.postId));
     const saved = new Set(saves.map((s) => s.postId));
     const followed = new Set(follows.map((f) => f.followeeId));
+    const purchased = new Set(ents.map((e) => e.postId));
     const isAdmin = viewer.roles.includes('ADMIN');
 
     return Promise.all(
       rows.map(async (r): Promise<PostDto> => {
         const m = r.media[0];
         const isAuthor = r.authorId === viewer.id;
+        const unlocked = canViewFullMedia(r, viewer, purchased.has(r.id));
         return {
           id: r.id,
           type: r.type,
@@ -65,13 +85,27 @@ export class PostMapper {
           artists: r.artists.map((a) => a.artist),
           media: {
             type: r.type,
-            url: await this.storage.privateUrl(m?.displayKey),
-            thumbUrl: await this.storage.privateUrl(m?.thumbKey),
+            // Locked: no URL to the real media at all, only the blurred preview.
+            url: unlocked ? await this.storage.privateUrl(m?.displayKey) : null,
+            thumbUrl: await this.storage.privateUrl(
+              unlocked ? m?.thumbKey : (m?.previewKey ?? null),
+            ),
             width: m?.width ?? null,
             height: m?.height ?? null,
             durationMs: m?.durationMs ?? null,
           },
           isOfficial: r.isOfficial,
+          monetization: {
+            mode: r.monetizationMode,
+            priceMinor: r.priceMinor,
+            suggestedMinor: r.suggestedMinor,
+            minimumMinor: r.minimumMinor,
+            gated: r.pwywGated,
+            tipsEnabled: r.tipsEnabled,
+            currency: r.currency,
+          },
+          unlocked,
+          purchased: purchased.has(r.id),
           likeCount: r.likeCount,
           commentCount: r.commentCount,
           saveCount: r.saveCount,

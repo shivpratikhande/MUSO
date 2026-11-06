@@ -2,6 +2,7 @@ import { z } from 'zod';
 import { CursorQuerySchema } from '../api.js';
 import type { UserRole } from '../enums.js';
 import { UuidSchema } from './common.js';
+import { PricingSchema, type PostMonetization } from './money.js';
 import type { EventStatus } from './events.js';
 
 export const MEDIA_TYPES = ['PHOTO', 'VIDEO'] as const;
@@ -43,8 +44,7 @@ export const CreatePostSchema = z.object({
     .refine((a) => new Set(a).size === a.length, 'Each artist can only be tagged once')
     .default([]),
   rightsConfirmed: z.literal(true, 'Confirm you captured this and have the right to share it'),
-  /** Paid modes arrive in Milestone 4. */
-  monetizationMode: z.literal('FREE').default('FREE'),
+  pricing: PricingSchema.default({ mode: 'FREE', tipsEnabled: true }),
 });
 export type CreatePostInput = z.input<typeof CreatePostSchema>;
 
@@ -151,6 +151,11 @@ export interface PostDto {
   media: PostMediaDto;
   /** Posted by one of the tagged artists themselves. */
   isOfficial: boolean;
+  monetization: PostMonetization;
+  /** False when the viewer must pay to see the full media (media.url is then null). */
+  unlocked: boolean;
+  /** Viewer has an entitlement from a past purchase. */
+  purchased: boolean;
   likeCount: number;
   commentCount: number;
   saveCount: number;
@@ -201,7 +206,9 @@ export type NotificationType =
   | 'MENTIONED'
   | 'TAGGED_IN_POST'
   | 'POST_PUBLISHED'
-  | 'POST_FAILED';
+  | 'POST_FAILED'
+  | 'CONTENT_PURCHASED'
+  | 'TIP_RECEIVED';
 
 export interface NotificationDto {
   id: string;

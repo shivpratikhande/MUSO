@@ -14,20 +14,22 @@ describe('post schemas', () => {
     expect(CreatePostSchema.safeParse(base).success).toBe(false);
     expect(CreatePostSchema.safeParse({ ...base, rightsConfirmed: false }).success).toBe(false);
     expect(CreatePostSchema.parse({ ...base, rightsConfirmed: true })).toMatchObject({
-      monetizationMode: 'FREE',
       artistIds: [],
     });
   });
 
-  it('rejects paid modes until Milestone 4', () => {
-    const r = CreatePostSchema.safeParse({
-      clientRequestId: id,
-      mediaKey: 'k',
-      type: 'PHOTO',
-      rightsConfirmed: true,
-      monetizationMode: 'PAY_TO_UNLOCK',
-    });
-    expect(r.success).toBe(false);
+  it('defaults to free and validates paid pricing', () => {
+    const base = { clientRequestId: id, mediaKey: 'k', type: 'PHOTO', rightsConfirmed: true };
+    expect(CreatePostSchema.parse(base).pricing).toEqual({ mode: 'FREE', tipsEnabled: true });
+    const parse = (pricing: unknown) => CreatePostSchema.safeParse({ ...base, pricing }).success;
+    expect(parse({ mode: 'PAY_TO_UNLOCK', priceMinor: 500 })).toBe(false); // below ₹10
+    expect(parse({ mode: 'PAY_TO_UNLOCK', priceMinor: 4900 })).toBe(true);
+    expect(parse({ mode: 'PAY_WHAT_YOU_WANT', suggestedMinor: 2000, minimumMinor: 5000 })).toBe(
+      false,
+    );
+    expect(parse({ mode: 'PAY_WHAT_YOU_WANT', suggestedMinor: 5000, minimumMinor: 2000 })).toBe(
+      true,
+    );
   });
 
   it('enforces per-type upload limits', () => {

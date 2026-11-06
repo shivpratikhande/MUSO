@@ -29,6 +29,10 @@ function text(n: NotificationDto): string {
       return 'Your post is live';
     case 'POST_FAILED':
       return 'Your upload couldn’t be processed. Tap to see why.';
+    case 'CONTENT_PURCHASED':
+      return `${name(n)} unlocked your post 💸`;
+    case 'TIP_RECEIVED':
+      return `${name(n)} sent you a tip 🙌`;
   }
 }
 

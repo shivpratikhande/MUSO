@@ -1,6 +1,7 @@
 import { Module } from '@nestjs/common';
 import { CommentsService } from '../comments/comments.service.js';
 import { FeedService } from '../feed/feed.service.js';
+import { MediaDerivatives } from '../media/media-derivatives.service.js';
 import { MediaProcessor } from '../media/media-processor.service.js';
 import { MediaQueue } from '../media/media.queue.js';
 import { MediaWorker } from '../media/media.worker.js';
@@ -18,10 +19,11 @@ import { PostsService } from './posts.service.js';
     MediaQueue,
     MediaProcessor,
     MediaWorker,
+    MediaDerivatives,
     FeedService,
     CommentsService,
     SocialService,
   ],
-  exports: [PostsService],
+  exports: [PostsService, PostMapper, MediaDerivatives],
 })
 export class ContentModule {}

@@ -6,6 +6,7 @@ import {
   parseMentions,
   type CreatePostSchema,
   type Paginated,
+  type PricingSchema,
   type PostDto,
   type PresignPostMediaInput,
   type PresignedPostMedia,
@@ -23,11 +24,45 @@ import { blockedUserIds, isBlockedEitherWay } from '../../common/users.js';
 import { PrismaService } from '../../database/prisma.service.js';
 import { StorageService } from '../../storage/storage.service.js';
 import type { RequestUser } from '../auth/auth.types.js';
+import { MediaDerivatives } from '../media/media-derivatives.service.js';
 import { MediaQueue } from '../media/media.queue.js';
 import { NotificationsService } from '../notifications/notifications.service.js';
-import { PostMapper, postInclude } from './post-mapper.service.js';
+import { PostMapper, canViewFullMedia, postInclude } from './post-mapper.service.js';
 
 type CreatePost = z.output<typeof CreatePostSchema>;
+type Pricing = z.output<typeof PricingSchema>;
+
+/** Maps validated pricing input to Post columns (unused fields cleared). */
+export function pricingColumns(p: Pricing) {
+  return {
+    monetizationMode: p.mode,
+    priceMinor: p.mode === 'PAY_TO_UNLOCK' ? p.priceMinor : null,
+    suggestedMinor: p.mode === 'PAY_WHAT_YOU_WANT' ? p.suggestedMinor : null,
+    minimumMinor: p.mode === 'PAY_WHAT_YOU_WANT' ? (p.minimumMinor ?? null) : null,
+    pwywGated: p.mode === 'PAY_WHAT_YOU_WANT' ? p.gated : true,
+    tipsEnabled: p.tipsEnabled,
+  };
+}
+
+/**
+ * Consent: a fan may only charge for a capture if every tagged artist (other than themselves)
+ * allows fans to monetise captures of their shows.
+ */
+export function assertMaySell(
+  pricing: Pricing,
+  artists: { userId: string; stageName: string; contentUsagePolicy: string }[],
+  authorId: string,
+): void {
+  if (pricing.mode === 'FREE') return;
+  const blocking = artists.find(
+    (a) => a.userId !== authorId && a.contentUsagePolicy !== 'FAN_MONETIZATION_ALLOWED',
+  );
+  if (blocking) {
+    throw forbidden(
+      `${blocking.stageName} hasn’t allowed fans to sell captures of their shows. Post it for free (tips still work).`,
+    );
+  }
+}
 
 const EXT: Record<string, string> = {
   'image/jpeg': 'jpg',
@@ -55,7 +90,67 @@ export class PostsService {
     private readonly mapper: PostMapper,
     private readonly queue: MediaQueue,
     private readonly notifications: NotificationsService,
+    private readonly derivatives: MediaDerivatives,
   ) {}
+
+  /**
+   * Changes a post's pricing. Recorded in pricing history; existing buyers keep access
+   * because entitlements never depend on the current price.
+   */
+  async updatePricing(id: string, pricing: Pricing, viewer: RequestUser): Promise<PostDto> {
+    const post = await this.prisma.post.findFirst({
+      where: { id, deletedAt: null },
+      include: {
+        artists: {
+          select: {
+            artist: { select: { userId: true, stageName: true, contentUsagePolicy: true } },
+          },
+        },
+      },
+    });
+    if (!post) throw notFound('That post');
+    if (post.authorId !== viewer.id) throw forbidden('Only the creator can change the price');
+    assertMaySell(
+      pricing,
+      post.artists.map((a) => a.artist),
+      viewer.id,
+    );
+    const cols = pricingColumns(pricing);
+    await this.prisma.$transaction([
+      this.prisma.post.update({ where: { id }, data: cols }),
+      this.prisma.contentPricingHistory.create({
+        data: {
+          postId: id,
+          changedById: viewer.id,
+          mode: cols.monetizationMode,
+          priceMinor: cols.priceMinor,
+          suggestedMinor: cols.suggestedMinor,
+          minimumMinor: cols.minimumMinor,
+          pwywGated: cols.pwywGated,
+          tipsEnabled: cols.tipsEnabled,
+        },
+      }),
+    ]);
+    if (pricing.mode !== 'FREE' && post.status === 'PUBLISHED')
+      await this.derivatives.ensurePreview(id);
+    return this.get(id, viewer);
+  }
+
+  /** Full-resolution, metadata-free photo for people who can see the full media. */
+  async downloadUrl(id: string, viewer: RequestUser): Promise<{ url: string }> {
+    const post = await this.loadVisible(id, viewer);
+    if (post.type !== 'PHOTO' || post.status !== 'PUBLISHED')
+      throw badRequest('Only photos can be downloaded');
+    const purchased = await this.prisma.contentEntitlement.findUnique({
+      where: { userId_postId: { userId: viewer.id, postId: id } },
+    });
+    if (!canViewFullMedia(post, viewer, !!purchased))
+      throw forbidden('Unlock this photo to download it');
+    const key = await this.derivatives.ensureFull(id);
+    const url = key ? await this.storage.privateUrl(key) : null;
+    if (!url) throw notFound('That file');
+    return { url };
+  }
 
   presign(user: RequestUser, input: PresignPostMediaInput): Promise<PresignedPostMedia> {
     if (!user.emailVerified) throw forbidden('Verify your email before posting');
@@ -119,6 +214,7 @@ export class PostsService {
     if (objecting) throw forbidden(`${objecting.stageName} has asked fans not to post recordings`);
     // Fan captures are never "official"; only an artist posting a tag of themselves is.
     const isOfficial = artists.some((a) => a.userId === user.id);
+    assertMaySell(input.pricing, artists, user.id);
 
     let post;
     try {
@@ -129,7 +225,7 @@ export class PostsService {
           type: input.type,
           caption: input.caption,
           hashtags: parseHashtags(input.caption),
-          monetizationMode: 'FREE',
+          ...pricingColumns(input.pricing),
           isOfficial,
           rightsConfirmedAt: new Date(),
           clientRequestId: input.clientRequestId,

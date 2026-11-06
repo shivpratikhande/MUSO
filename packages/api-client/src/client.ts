@@ -4,6 +4,10 @@ import {
   type ApiResponse,
   type ArtistDetail,
   type CommentDto,
+  type CreateCheckoutInput,
+  type EarningsSummary,
+  type PaymentDto,
+  type PricingInput,
   type CreateCommentInput,
   type CreatePostInput,
   type FeedTab,
@@ -281,6 +285,24 @@ export function createApiClient(opts: ApiClientOptions) {
         request<Paginated<NotificationDto>>('GET', '/notifications', { query: { cursor } }),
       unreadCount: () => request<{ count: number }>('GET', '/notifications/unread-count'),
       markRead: (ids?: string[]) => request<void>('POST', '/notifications/read', { body: { ids } }),
+    },
+    payments: {
+      checkout: (body: CreateCheckoutInput) =>
+        request<PaymentDto>('POST', '/payments/checkout', { body }),
+      verify: (id: string) => request<PaymentDto>('POST', `/payments/${id}/verify`),
+      get: (id: string) => request<PaymentDto>('GET', `/payments/${id}`),
+      mine: (cursor?: string) =>
+        request<Paginated<PaymentDto>>('GET', '/payments', { query: { cursor } }),
+      library: () => request<PostDto[]>('GET', '/library'),
+      earnings: () => request<EarningsSummary>('GET', '/earnings'),
+      config: () =>
+        request<{ feeBpsSales: number; feeBpsTips: number; testMode: boolean; provider: string }>(
+          'GET',
+          '/payments/config',
+        ),
+      setPricing: (postId: string, body: PricingInput) =>
+        request<PostDto>('PATCH', `/posts/${postId}/pricing`, { body }),
+      download: (postId: string) => request<{ url: string }>('GET', `/posts/${postId}/download`),
     },
     reports: {
       create: (body: ReportInput) => request<{ ok: true }>('POST', '/reports', { body }),

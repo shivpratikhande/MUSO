@@ -157,6 +157,21 @@ export default function ProfileScreen() {
           <AppText variant="label" tone="muted">
             Settings
           </AppText>
+          <ListRow
+            title="Earnings"
+            subtitle="Tips, sales, pending and available balance"
+            onPress={() => router.push('/earnings')}
+          />
+          <ListRow
+            title="Library"
+            subtitle="Moments you’ve unlocked"
+            onPress={() => router.push('/library')}
+          />
+          <ListRow
+            title="Purchases"
+            subtitle="Unlocks and tips you’ve sent"
+            onPress={() => router.push('/purchases')}
+          />
           <ListRow title="Saved moments" onPress={() => router.push('/saved')} />
           <ListRow
             title="Edit profile"

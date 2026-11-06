@@ -1,4 +1,4 @@
-import type { PostDto } from '@muso/shared';
+import { formatMoney, type PostDto } from '@muso/shared';
 import { Image } from 'expo-image';
 import { router } from 'expo-router';
 import { Pressable, View } from 'react-native';
@@ -16,6 +16,11 @@ const ago = (iso: string | null) => {
   if (s < 86400) return `${Math.floor(s / 3600)}h`;
   return `${Math.floor(s / 86400)}d`;
 };
+/** "₹49" for fixed prices, "₹49+" (from minimum) for pay-what-you-want. */
+const unlockLabel = (p: PostDto) =>
+  p.monetization.mode === 'PAY_TO_UNLOCK'
+    ? formatMoney(p.monetization.priceMinor ?? 0)
+    : `${formatMoney(p.monetization.minimumMinor ?? p.monetization.suggestedMinor ?? 0)}${p.monetization.minimumMinor ? '+' : ' suggested'}`;
 const mmss = (ms: number) =>
   `${Math.floor(ms / 60000)}:${String(Math.floor((ms % 60000) / 1000)).padStart(2, '0')}`;
 
@@ -139,6 +144,56 @@ export function PostCard({
                   : (post.failureReason ?? 'Please try another file.')}
               </AppText>
             </View>
+          ) : !post.unlocked ? (
+            <>
+              {post.media.thumbUrl ? (
+                <Image
+                  source={{ uri: post.media.thumbUrl }}
+                  style={{ position: 'absolute', inset: 0 }}
+                  contentFit="cover"
+                />
+              ) : null}
+              <View
+                style={{
+                  flex: 1,
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  gap: t.space.sm,
+                  backgroundColor: 'rgba(23,23,21,0.35)',
+                  padding: t.space.xl,
+                }}
+              >
+                <AppText variant="title" tone="inverse" align="center">
+                  🔒 {post.type === 'VIDEO' ? 'Exclusive video' : 'Exclusive photo'}
+                </AppText>
+                {post.type === 'VIDEO' && post.media.durationMs ? (
+                  <AppText variant="caption" tone="inverse">
+                    {mmss(post.media.durationMs)}
+                  </AppText>
+                ) : null}
+                <Pressable
+                  accessibilityRole="button"
+                  accessibilityLabel={`Unlock for ${unlockLabel(post)}`}
+                  onPress={() =>
+                    router.push({
+                      pathname: '/checkout',
+                      params: { postId: post.id, kind: 'UNLOCK' },
+                    })
+                  }
+                  style={({ pressed }) => ({
+                    backgroundColor: t.c.accent,
+                    borderRadius: t.radius.pill,
+                    paddingHorizontal: 20,
+                    paddingVertical: 12,
+                    opacity: pressed ? 0.85 : 1,
+                  })}
+                >
+                  <AppText variant="heading" tone="onAccent">
+                    Unlock · {unlockLabel(post)}
+                  </AppText>
+                </Pressable>
+              </View>
+            </>
           ) : post.type === 'VIDEO' && post.media.url ? (
             <>
               {!active ? (
@@ -185,6 +240,10 @@ export function PostCard({
             {post.event?.status === 'LIVE' ? <Pill label="● Live" tone="accent" /> : null}
             {post.isOfficial ? <Pill label="Official" tone="accent" /> : null}
             {post.hidden ? <Pill label="Hidden" tone="danger" /> : null}
+            {post.purchased ? <Pill label="Purchased" tone="accent" /> : null}
+            {post.viewer.isAuthor && post.monetization.mode !== 'FREE' ? (
+              <Pill label={`Paid · ${unlockLabel(post)}`} />
+            ) : null}
           </View>
         </View>
       </Pressable>
@@ -232,6 +291,15 @@ export function PostCard({
             onPress={toggleSave}
           />
           <View style={{ flex: 1 }} />
+          {post.monetization.tipsEnabled && !post.viewer.isAuthor ? (
+            <Action
+              label="₹ Tip"
+              a11y={`Tip ${post.author.displayName ?? 'the creator'}`}
+              onPress={() =>
+                router.push({ pathname: '/checkout', params: { postId: post.id, kind: 'TIP' } })
+              }
+            />
+          ) : null}
           <Action label="Share" a11y="Share" onPress={() => void sharePost(post)} />
         </View>
       ) : null}

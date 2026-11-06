@@ -106,6 +106,12 @@ export function usePostMenu(post: PostDto, onRemoved?: () => void) {
         onRemoved?.();
       });
     }
+    if (post.viewer.isAuthor && post.status === 'PUBLISHED') {
+      options.push('Change price');
+      actions.push(async () => {
+        router.push({ pathname: '/pricing/[id]', params: { id: post.id } });
+      });
+    }
     if (!post.viewer.isAuthor) {
       options.push('Report post');
       actions.push(async () => {

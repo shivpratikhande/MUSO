@@ -1,4 +1,4 @@
-import type { ArtistSummary, EventSummary } from '@muso/shared';
+import type { ArtistSummary, EventSummary, PricingInput } from '@muso/shared';
 import { MAX_CAPTION, MAX_TAGGED_ARTISTS } from '@muso/shared';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { Image } from 'expo-image';
@@ -12,11 +12,11 @@ import {
   Chip,
   EmptyState,
   FormError,
-  Pill,
   Screen,
   TextField,
 } from '@/components/ui';
 import { RECORDING_COPY } from '@/features/events/format';
+import { PricingPicker } from '@/features/money/PricingPicker';
 import { useDraft } from '@/features/posts/draft-store';
 import { postKeys } from '@/features/posts/keys';
 import { putWithProgress } from '@/features/posts/upload';
@@ -40,6 +40,7 @@ export default function ComposeScreen() {
   const [artists, setArtists] = useState<ArtistSummary[]>([]);
   const [artistQuery, setArtistQuery] = useState('');
   const [rights, setRights] = useState(false);
+  const [pricing, setPricing] = useState<PricingInput>({ mode: 'FREE', tipsEnabled: true });
   const [phase, setPhase] = useState<Phase>({ kind: 'editing' });
   /** Storage key of a completed upload, reused when retrying the publish step. */
   const uploadedKey = useRef<string | null>(null);
@@ -137,6 +138,7 @@ export default function ComposeScreen() {
         eventId,
         artistIds: artists.map((a) => a.id),
         rightsConfirmed: true,
+        pricing,
       });
       clearDraft();
       void qc.invalidateQueries({ queryKey: postKeys.all });
@@ -274,16 +276,17 @@ export default function ComposeScreen() {
         ) : null}
       </View>
 
-      <View style={{ gap: t.space.xs }}>
+      <View style={{ gap: t.space.sm }}>
         <AppText variant="label" tone="muted">
           Earnings
         </AppText>
-        <View style={{ flexDirection: 'row', gap: t.space.sm, alignItems: 'center' }}>
-          <Pill label="Free" tone="accent" />
+        <PricingPicker value={pricing} onChange={setPricing} disabled={busy} />
+        {pricing.mode !== 'FREE' && artists.length ? (
           <AppText variant="caption" tone="muted">
-            Paid unlocks and tips arrive in the next update.
+            Selling captures needs permission from every tagged artist. If one hasn’t allowed it,
+            you’ll be asked to post for free (tips still work).
           </AppText>
-        </View>
+        ) : null}
       </View>
 
       <Pressable
