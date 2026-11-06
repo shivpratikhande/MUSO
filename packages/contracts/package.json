@@ -1,0 +1,15 @@
+{
+  "name": "@muso/contracts",
+  "version": "0.1.0",
+  "private": true,
+  "description": "RewardCampaigns: sponsor-funded USDC reward escrow with Merkle claims (Arc).",
+  "scripts": {
+    "build": "PATH=$HOME/.local/bin:$PATH arc-forge build",
+    "test": "PATH=$HOME/.local/bin:$PATH arc-forge test --network arc",
+    "typecheck": "true",
+    "deploy:testnet": "PATH=$HOME/.local/bin:$PATH arc-forge script script/DeployRewardCampaigns.s.sol --rpc-url https://rpc.testnet.arc.network --broadcast"
+  },
+  "dependencies": {
+    "@openzeppelin/contracts": "5.6.1"
+  }
+}
