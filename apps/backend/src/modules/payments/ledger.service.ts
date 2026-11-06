@@ -7,6 +7,7 @@ export const accounts = {
   creatorPending: (userId: string) => `creator:${userId}:pending`,
   creatorAvailable: (userId: string) => `creator:${userId}:available`,
   platformFees: 'platform:fees',
+  poolEscrow: (poolId: string) => `pool:${poolId}:escrow`,
 };
 
 export interface LedgerLine {

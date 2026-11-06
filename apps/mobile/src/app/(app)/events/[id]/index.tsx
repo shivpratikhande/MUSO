@@ -1,4 +1,4 @@
-import type { EventDetail } from '@muso/shared';
+import { formatMoney, type EventDetail } from '@muso/shared';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { Image } from 'expo-image';
 import { router, useLocalSearchParams } from 'expo-router';
@@ -57,6 +57,16 @@ export default function EventDetailScreen() {
   const moments = useQuery({
     queryKey: postKeys.event(id),
     queryFn: () => api.posts.byEvent(id),
+    enabled: event.data?.reviewStatus === 'APPROVED',
+  });
+  const pools = useQuery({
+    queryKey: ['pools', 'event', id],
+    queryFn: () => api.rewards.forEvent(id),
+    enabled: event.data?.reviewStatus === 'APPROVED',
+  });
+  const boards = useQuery({
+    queryKey: ['events', 'leaderboards', id],
+    queryFn: () => api.rewards.leaderboards(id),
     enabled: event.data?.reviewStatus === 'APPROVED',
   });
 
@@ -252,6 +262,92 @@ export default function EventDetailScreen() {
                   : 'No moments shared yet.'}
               </AppText>
             )}
+          </View>
+        ) : null}
+
+        {e.reviewStatus === 'APPROVED' && (pools.data?.length || e.viewer.canEdit) ? (
+          <View style={{ gap: t.space.sm }}>
+            <AppText variant="label" tone="muted">
+              Creator rewards
+            </AppText>
+            {pools.data?.map((p) => (
+              <Pressable
+                key={p.id}
+                accessibilityRole="button"
+                onPress={() => router.push({ pathname: '/pools/[id]', params: { id: p.id } })}
+              >
+                <Card inverse>
+                  <View style={{ flexDirection: 'row', justifyContent: 'space-between' }}>
+                    <AppText variant="heading" tone="inverse">
+                      {formatMoney(p.budgetMinor)} pool
+                    </AppText>
+                    <Pill
+                      label={p.status === 'ACTIVE' ? '● Active' : p.status.toLowerCase()}
+                      tone={p.status === 'ACTIVE' ? 'accent' : 'neutral'}
+                    />
+                  </View>
+                  <AppText variant="caption" tone="inverse">
+                    {p.title} · funded by {p.sponsorName}. Upload videos here and earn by qualified
+                    watch time.
+                  </AppText>
+                </Card>
+              </Pressable>
+            ))}
+            {e.viewer.canEdit && e.status !== 'CANCELLED' && e.status !== 'COMPLETED' ? (
+              <Button
+                label="Create a reward pool"
+                variant="ghost"
+                onPress={() => router.push({ pathname: '/pools/new', params: { eventId: e.id } })}
+              />
+            ) : null}
+          </View>
+        ) : null}
+
+        {boards.data &&
+        (boards.data.watchTime.length ||
+          boards.data.mostLoved.length ||
+          boards.data.mostSupported.length) ? (
+          <View style={{ gap: t.space.sm }}>
+            <AppText variant="label" tone="muted">
+              Leaderboards
+            </AppText>
+            {boards.data.watchTime.length ? (
+              <Card>
+                <AppText variant="bodyStrong">Most watched creators</AppText>
+                {boards.data.watchTime.slice(0, 5).map((w, i) => (
+                  <AppText key={w.creatorId} variant="caption">
+                    {i + 1}. {w.displayName ?? w.username} ·{' '}
+                    {Math.max(1, Math.round(w.qualifiedSeconds / 60))} min qualified
+                  </AppText>
+                ))}
+              </Card>
+            ) : null}
+            {boards.data.mostLoved.length ? (
+              <Card>
+                <AppText variant="bodyStrong">Most loved moments</AppText>
+                {boards.data.mostLoved.slice(0, 5).map((m, i) => (
+                  <AppText
+                    key={m.postId}
+                    variant="caption"
+                    onPress={() =>
+                      router.push({ pathname: '/posts/[id]', params: { id: m.postId } })
+                    }
+                  >
+                    {i + 1}. {m.creatorName} · ♥ {m.likes}
+                  </AppText>
+                ))}
+              </Card>
+            ) : null}
+            {boards.data.mostSupported.length ? (
+              <Card>
+                <AppText variant="bodyStrong">Most supported creators</AppText>
+                {boards.data.mostSupported.slice(0, 5).map((s, i) => (
+                  <AppText key={s.creatorId} variant="caption">
+                    {i + 1}. {s.displayName ?? s.username} · {s.supporters} supporters
+                  </AppText>
+                ))}
+              </Card>
+            ) : null}
           </View>
         ) : null}
 

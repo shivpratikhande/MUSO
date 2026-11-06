@@ -66,6 +66,12 @@ export const CreateCheckoutSchema = z.discriminatedUnion('kind', [
     returnUrl: z.string().max(500),
   }),
   z.object({
+    kind: z.literal('POOL_FUNDING'),
+    poolId: UuidSchema,
+    idempotencyKey: UuidSchema,
+    returnUrl: z.string().max(500),
+  }),
+  z.object({
     kind: z.literal('TIP'),
     postId: UuidSchema,
     amountMinor: z
@@ -99,7 +105,7 @@ export type PaymentStatusDto =
 
 export interface PaymentDto {
   id: string;
-  kind: 'UNLOCK' | 'TIP';
+  kind: 'UNLOCK' | 'TIP' | 'POOL_FUNDING';
   status: PaymentStatusDto;
   amountMinor: number;
   currency: string;
@@ -112,7 +118,9 @@ export interface PaymentDto {
   testMode: boolean;
   failureReason: string | null;
   post: { id: string; thumbUrl: string | null; caption: string } | null;
-  payee: { id: string; displayName: string | null; username: string | null };
+  /** Null for pool funding (money goes to the pool's escrow). */
+  payee: { id: string; displayName: string | null; username: string | null } | null;
+  pool: { id: string; title: string } | null;
   createdAt: string;
   succeededAt: string | null;
 }

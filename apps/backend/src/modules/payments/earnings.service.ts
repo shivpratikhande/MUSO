@@ -4,6 +4,7 @@ import type { EarningDto, EarningsSummary, EarningSourceDto, EarningStatusDto } 
 import type { Env } from '../../config/env.js';
 import { PrismaService } from '../../database/prisma.service.js';
 import { StorageService } from '../../storage/storage.service.js';
+import { RewardStandings } from '../rewards/reward-standings.service.js';
 import { LedgerService, accounts } from './ledger.service.js';
 
 const STATUSES: EarningStatusDto[] = [
@@ -25,6 +26,7 @@ export class EarningsService {
     private readonly storage: StorageService,
     private readonly ledger: LedgerService,
     private readonly config: ConfigService<Env, true>,
+    private readonly standings: RewardStandings,
   ) {}
 
   /** Moves earnings whose hold window has passed from PENDING to AVAILABLE (idempotent). */
@@ -97,10 +99,16 @@ export class EarningsService {
       select: { postId: true, thumbKey: true },
     });
     const thumbs = new Map(topMedia.map((m) => [m.postId, m.thumbKey]));
+    // Live, non-binding estimate from running reward pools (never stored, never withdrawable).
+    const estimated = await this.standings.estimatedForCreator(creatorId);
     return {
       currency: 'INR',
       byStatus: Object.fromEntries(
-        STATUSES.map((s) => [s, byStatus.find((r) => r.status === s)?._sum.netMinor ?? 0]),
+        STATUSES.map((s) => [
+          s,
+          (byStatus.find((r) => r.status === s)?._sum.netMinor ?? 0) +
+            (s === 'ESTIMATED' ? estimated : 0),
+        ]),
       ) as EarningsSummary['byStatus'],
       bySource: Object.fromEntries(
         SOURCES.map((s) => [s, bySource.find((r) => r.source === s)?._sum.grossMinor ?? 0]),

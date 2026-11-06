@@ -44,6 +44,11 @@ export default function AppLayout() {
       <Stack.Screen name="earnings" options={{ title: 'Earnings' }} />
       <Stack.Screen name="purchases" options={{ title: 'Purchases' }} />
       <Stack.Screen name="library" options={{ title: 'Library' }} />
+      <Stack.Screen name="pools/[id]" options={{ title: 'Reward pool' }} />
+      <Stack.Screen
+        name="pools/new"
+        options={{ title: 'New reward pool', presentation: 'modal' }}
+      />
     </Stack>
   );
 }

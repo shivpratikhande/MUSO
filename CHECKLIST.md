@@ -10,12 +10,12 @@ A UI that exists but isn't wired to the backend is `[~]`, never `[x]`.
 
 ## 📍 Current status — 2026-11-06
 
-**Milestone 4 built. The money flow works end to end on the sandbox provider (no real money). The new mobile screens haven't been tapped through on a phone yet.**
-- ✅ Backend: **95/95 e2e tests** pass. They cover the full hosted checkout, exactly-once fulfilment under concurrent verification, idempotency keys, declines, cancellations, expiry, reconciliation, pay-what-you-want, tips, price changes where buyers keep access, earnings moving from pending to available, and the database refusing ledger edits and unbalanced journals. Every monorepo task passes.
+**Milestone 5 built: funded reward pools paid out by server-verified watch time. The backend is fully tested. The new mobile screens haven't been tapped through on a phone yet.**
+- ✅ Backend: **106/106 e2e tests** pass. They cover pool funding into escrow, server-measured crediting, the one-view cap per viewer, paused and background playback, bot flagging with credit reversal, one crediting session at a time, shared-device, creator and unverified exclusions, locked videos not tracked, exact proportional payouts made once, caps with the remainder kept in escrow, and leaderboards. Shared payout maths: 28 unit tests.
 - ✅ Mobile: typecheck, ESLint and the iOS bundle pass.
-- ⚠️ **Sandbox payments only.** A real provider (Razorpay or Cashfree for INR, or Coinbase on Base Sepolia in M6) plugs into `PaymentProvider`. Real money waits for KYC, tax and regulatory review.
-- ⚠️ On-device pass still needed for the Milestone 2–4 screens.
-- ⏭ Refunds, reversals and payouts are designed into the ledger and statuses and get built in Milestone 7.
+- ⚠️ Payments are still sandbox (no real money). Unallocated pool money stays in escrow; returning it to the funder is part of refunds in M7.
+- ⚠️ On-device pass still needed for the Milestone 2–5 screens.
+- 🛠 `pnpm dev:lan` re-points the phone setup after switching Wi-Fi.
 
 ---
 
@@ -202,33 +202,33 @@ A UI that exists but isn't wired to the backend is `[~]`, never `[x]`.
 ## Milestone 5 — Rewards (P1)
 
 ### Reward pools
-- [ ] Organizer/sponsor creates reward pool (funded by real, disclosed source)
-- [ ] Lifecycle: Draft → Funded → Active → Completed → Distributed / Cancelled
-- [ ] Eligibility rules + remaining budget shown
-- [ ] Per-video and per-pool caps
+- [x] Organizer/sponsor creates reward pool (funded through verified checkout into escrow; funder disclosed)
+- [x] Lifecycle: Draft → Funded → Active → Completed → Distributed / Cancelled
+- [x] Eligibility rules + budget / allocated shown
+- [x] Per-video cap (water-filling) and pool budget cap; min distinct viewers per video
 
 ### Qualified watch time
-- [ ] Authenticated watch sessions
-- [ ] Server-issued playback heartbeats
-- [ ] Max credited time per interval
-- [ ] Unique viewer tracking
-- [ ] Duplicate session prevention
-- [ ] Background / inactive playback excluded
-- [ ] Bot + suspicious activity detection
-- [ ] Device + account abuse limits
-- [ ] Backend authoritative — client totals never trusted
+- [x] Authenticated watch sessions
+- [x] Server-timed playback heartbeats (client totals never trusted)
+- [x] Max credited time per interval
+- [x] Unique viewer tracking (one full view per viewer per video)
+- [x] Duplicate session prevention (one crediting session per viewer)
+- [x] Background / paused playback excluded
+- [x] Bot + suspicious activity detection (timing anomalies, position jumps, network clusters → flagged & reversed)
+- [x] Device + account abuse limits (accounts per device, daily cap, unverified/self excluded)
+- [x] Backend authoritative — client totals never trusted
 
 ### Distribution
-- [ ] Proportional pool-share calculation (background job)
-- [ ] Rewards written to ledger with statuses
-- [ ] Reward history + watch reward details screens
-- [ ] Event creator leaderboards (verified data, quality-weighted)
-- [ ] Creator analytics
+- [x] Proportional pool-share calculation (background job, exact paise, exactly once)
+- [x] Rewards written to ledger with statuses (escrow → creator pending; estimated shown live)
+- [x] Reward pool screen with live leaderboard; rewards in Earnings
+- [x] Event creator leaderboards (verified watch time, most loved, most supported)
+- [~] Creator analytics (earnings dashboard + pool stats; deeper analytics later)
 
 ### P1 extras
 - [ ] Artist licensing requests (request → creator approves/declines)
 - [ ] Artist features approved content
-- [ ] Organizer dashboard
+- [~] Organizer dashboard (pool stats + my events; fuller dashboard later)
 - [~] Copyright / takedown requests + moderation queue (reports + admin API done in M3; app screen pending)
 
 ---

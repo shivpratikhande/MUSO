@@ -4,6 +4,13 @@ import {
   type ApiResponse,
   type ArtistDetail,
   type CommentDto,
+  type CreateRewardPoolInput,
+  type EventLeaderboards,
+  type HeartbeatInput,
+  type RewardPoolDetail,
+  type RewardPoolDto,
+  type StartWatchInput,
+  type WatchSessionDto,
   type CreateCheckoutInput,
   type EarningsSummary,
   type PaymentDto,
@@ -303,6 +310,23 @@ export function createApiClient(opts: ApiClientOptions) {
       setPricing: (postId: string, body: PricingInput) =>
         request<PostDto>('PATCH', `/posts/${postId}/pricing`, { body }),
       download: (postId: string) => request<{ url: string }>('GET', `/posts/${postId}/download`),
+    },
+    rewards: {
+      create: (body: CreateRewardPoolInput) =>
+        request<RewardPoolDetail>('POST', '/reward-pools', { body }),
+      get: (id: string) => request<RewardPoolDetail>('GET', `/reward-pools/${id}`),
+      cancel: (id: string) => request<RewardPoolDetail>('POST', `/reward-pools/${id}/cancel`),
+      forEvent: (eventId: string) =>
+        request<RewardPoolDto[]>('GET', `/events/${eventId}/reward-pools`),
+      leaderboards: (eventId: string) =>
+        request<EventLeaderboards>('GET', `/events/${eventId}/leaderboards`),
+    },
+    watch: {
+      start: (body: StartWatchInput) =>
+        request<WatchSessionDto>('POST', '/watch/sessions', { body }),
+      heartbeat: (sessionId: string, body: HeartbeatInput) =>
+        request<{ status: string }>('POST', `/watch/sessions/${sessionId}/heartbeat`, { body }),
+      end: (sessionId: string) => request<void>('POST', `/watch/sessions/${sessionId}/end`),
     },
     reports: {
       create: (body: ReportInput) => request<{ ok: true }>('POST', '/reports', { body }),

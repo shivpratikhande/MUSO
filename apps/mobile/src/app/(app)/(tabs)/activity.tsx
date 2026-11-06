@@ -33,10 +33,13 @@ function text(n: NotificationDto): string {
       return `${name(n)} unlocked your post 💸`;
     case 'TIP_RECEIVED':
       return `${name(n)} sent you a tip 🙌`;
+    case 'REWARD_EARNED':
+      return 'A reward pool paid out — see Earnings 🏆';
   }
 }
 
 function open(n: NotificationDto) {
+  if (n.type === 'REWARD_EARNED') return router.push('/earnings');
   if (n.post) router.push({ pathname: '/posts/[id]', params: { id: n.post.id } });
   else if (n.actor) router.push({ pathname: '/users/[id]', params: { id: n.actor.id } });
 }

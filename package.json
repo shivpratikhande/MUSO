@@ -21,7 +21,8 @@
     "format": "prettier --write \"**/*.{ts,tsx,js,json}\"",
     "test:e2e": "pnpm --filter @muso/backend test:e2e",
     "format:check": "prettier --check \"**/*.{ts,tsx,js,json}\"",
-    "db:make-admin": "pnpm --filter @muso/database db:make-admin"
+    "db:make-admin": "pnpm --filter @muso/database db:make-admin",
+    "dev:lan": "bash scripts/use-lan-ip.sh"
   },
   "devDependencies": {
     "prettier": "^3.4.2",

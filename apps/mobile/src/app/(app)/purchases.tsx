@@ -51,7 +51,9 @@ export default function PurchasesScreen() {
           )}
           <View style={{ flex: 1 }}>
             <AppText variant="bodyStrong">
-              {p.kind === 'TIP' ? 'Tip' : 'Unlock'} · {p.payee.displayName ?? p.payee.username}
+              {p.kind === 'POOL_FUNDING'
+                ? `Reward pool · ${p.pool?.title ?? ''}`
+                : `${p.kind === 'TIP' ? 'Tip' : 'Unlock'} · ${p.payee?.displayName ?? p.payee?.username ?? ''}`}
             </AppText>
             <AppText variant="caption" tone="muted">
               {new Date(p.createdAt).toLocaleString(undefined, {

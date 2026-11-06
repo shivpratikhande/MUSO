@@ -87,7 +87,7 @@ On a physical phone, use your Mac's LAN IP (`ipconfig getifaddr en0`) in **two**
 - `.env` → `S3_PUBLIC_ENDPOINT=http://<LAN-IP>:9000` (so the phone can upload and load images)
 - `.env` → `PUBLIC_API_URL=http://<LAN-IP>:4000` (so the phone can open the checkout page)
 
-If you change Wi-Fi, your LAN IP changes. Update all three and restart the API and Metro.
+If you change Wi-Fi, your LAN IP changes. Run **`pnpm dev:lan`** to update all three, then restart the API and Metro.
 
 Quickest way to try it without Xcode is **Expo Go**. Sign in to the same Expo account on the Mac (`npx expo login`) and in the Expo Go app, then scan the QR code from `pnpm dev:mobile`.
 
@@ -163,6 +163,13 @@ Fan captures are never marked official. A post is only "official" when the tagge
 - **Background:** a timer reconciles payments the app never verified, and moves earnings to AVAILABLE after `EARNINGS_HOLD_MINUTES`.
 - **Ledger:** `ledger_entries` is append-only (a DB trigger blocks UPDATE and DELETE), and every journal must sum to zero (a deferred DB trigger).
 - **Provider:** `PAYMENTS_PROVIDER=sandbox` simulates a hosted checkout with **no real money**, and the API refuses to boot with it in production. Real providers implement `PaymentProvider` (`apps/backend/src/modules/payments/providers`).
+
+## Reward pools & watch time (Milestone 5)
+
+- An event organizer creates a pool (budget, disclosed funder, per-video cap, minimum viewers) and funds it through the same verified checkout. The money sits in `pool:<id>:escrow` in the ledger.
+- While a video plays on screen, the app sends a heartbeat every 5 s (`/v1/watch/sessions/:id/heartbeat`). The **server** credits the time it measured between beats, never a client total. Credit per beat is capped, and paused or background playback, timing anomalies, position jumps, network clusters, shared devices, unverified accounts and self-views are all excluded. Each viewer counts once per video (capped at the video length).
+- When the window ends, a job splits the budget in proportion to qualified watch time (`splitProportionally`: per-video caps with redistribution, exact paise). It writes allocations, `WATCH_REWARD` earnings (pending, then available) and a balanced ledger journal, exactly once.
+- While a pool is live, creators see a non-binding **Estimated** amount. It is never withdrawable.
 
 ## Security notes
 

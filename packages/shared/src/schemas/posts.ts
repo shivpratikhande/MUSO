@@ -208,7 +208,8 @@ export type NotificationType =
   | 'POST_PUBLISHED'
   | 'POST_FAILED'
   | 'CONTENT_PURCHASED'
-  | 'TIP_RECEIVED';
+  | 'TIP_RECEIVED'
+  | 'REWARD_EARNED';
 
 export interface NotificationDto {
   id: string;

@@ -205,6 +205,7 @@ export function PostCard({
               ) : null}
               {active || detail ? (
                 <VideoPlayer
+                  trackPostId={post.unlocked && !post.viewer.isAuthor ? post.id : undefined}
                   uri={post.media.url}
                   active={active || detail}
                   controls={detail}

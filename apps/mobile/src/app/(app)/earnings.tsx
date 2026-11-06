@@ -109,7 +109,7 @@ export default function EarningsScreen() {
           </AppText>
           <AppText variant="title">{formatMoney(s.ESTIMATED)}</AppText>
           <AppText variant="caption" tone="muted">
-            Watch rewards (coming soon)
+            From active reward pools · not final
           </AppText>
         </Card>
       </View>

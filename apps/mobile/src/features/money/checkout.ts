@@ -6,7 +6,8 @@ import { api } from '@/services/api';
 
 export type CheckoutRequest =
   | { kind: 'UNLOCK'; postId: string; amountMinor?: number }
-  | { kind: 'TIP'; postId: string; amountMinor: number; message?: string };
+  | { kind: 'TIP'; postId: string; amountMinor: number; message?: string }
+  | { kind: 'POOL_FUNDING'; poolId: string };
 
 /**
  * Opens the provider's hosted checkout in an in-app browser, then asks *our server* for the

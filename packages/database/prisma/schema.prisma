@@ -73,6 +73,8 @@ model User {
   entitlements      ContentEntitlement[]
   earnings          Earning[]
   priceChanges      ContentPricingHistory[]
+  rewardPools       RewardPool[]
+  watchSessions     WatchSession[]
 
   @@map("users")
 }
@@ -253,12 +255,13 @@ model Event {
   updatedAt       DateTime          @updatedAt @map("updated_at")
   deletedAt       DateTime?         @map("deleted_at")
 
-  organizer  User                @relation("EventOrganizer", fields: [organizerId], references: [id])
-  reviewedBy User?               @relation("EventReviewer", fields: [reviewedById], references: [id])
-  artists    EventArtist[]
-  schedule   EventScheduleItem[]
-  followers  EventFollow[]
-  posts      Post[]
+  organizer   User                @relation("EventOrganizer", fields: [organizerId], references: [id])
+  reviewedBy  User?               @relation("EventReviewer", fields: [reviewedById], references: [id])
+  artists     EventArtist[]
+  schedule    EventScheduleItem[]
+  followers   EventFollow[]
+  posts       Post[]
+  rewardPools RewardPool[]
 
   @@index([reviewStatus, startsAt])
   @@index([reviewStatus, endsAt])
@@ -412,18 +415,20 @@ model Post {
   updatedAt         DateTime                @updatedAt @map("updated_at")
   deletedAt         DateTime?               @map("deleted_at")
 
-  author         User                    @relation(fields: [authorId], references: [id], onDelete: Cascade)
-  event          Event?                  @relation(fields: [eventId], references: [id], onDelete: SetNull)
-  media          PostMedia[]
-  artists        PostArtist[]
-  likes          Like[]
-  saves          SavedPost[]
-  comments       Comment[]
-  notifications  Notification[]
-  pricingHistory ContentPricingHistory[]
-  entitlements   ContentEntitlement[]
-  payments       PaymentIntent[]
-  earnings       Earning[]
+  author            User                    @relation(fields: [authorId], references: [id], onDelete: Cascade)
+  event             Event?                  @relation(fields: [eventId], references: [id], onDelete: SetNull)
+  media             PostMedia[]
+  artists           PostArtist[]
+  likes             Like[]
+  saves             SavedPost[]
+  comments          Comment[]
+  notifications     Notification[]
+  pricingHistory    ContentPricingHistory[]
+  entitlements      ContentEntitlement[]
+  payments          PaymentIntent[]
+  earnings          Earning[]
+  watchSessions     WatchSession[]
+  rewardAllocations RewardAllocation[]
 
   @@unique([authorId, clientRequestId])
   @@index([status, moderationStatus, publishedAt])
@@ -602,6 +607,7 @@ enum NotificationType {
   POST_FAILED
   CONTENT_PURCHASED
   TIP_RECEIVED
+  REWARD_EARNED
 }
 
 model Notification {
@@ -650,6 +656,8 @@ model ContentPricingHistory {
 enum PaymentKind {
   UNLOCK
   TIP
+  /// Sponsor/organizer funding a reward pool (money held in pool escrow).
+  POOL_FUNDING
 }
 
 enum PaymentStatus {
@@ -667,7 +675,7 @@ enum PaymentStatus {
 model PaymentIntent {
   id             String        @id @default(uuid(7)) @db.Uuid
   payerId        String        @map("payer_id") @db.Uuid
-  payeeId        String        @map("payee_id") @db.Uuid
+  payeeId        String?       @map("payee_id") @db.Uuid
   postId         String?       @map("post_id") @db.Uuid
   kind           PaymentKind
   amountMinor    Int           @map("amount_minor")
@@ -679,6 +687,7 @@ model PaymentIntent {
   providerRef    String?       @map("provider_ref")
   checkoutUrl    String?       @map("checkout_url")
   /// Client-supplied idempotency key, unique per payer.
+  rewardPoolId   String?       @map("reward_pool_id") @db.Uuid
   idempotencyKey String        @map("idempotency_key")
   message        String?
   failureReason  String?       @map("failure_reason")
@@ -688,8 +697,9 @@ model PaymentIntent {
   updatedAt      DateTime      @updatedAt @map("updated_at")
 
   payer       User                @relation("Payer", fields: [payerId], references: [id])
-  payee       User                @relation("Payee", fields: [payeeId], references: [id])
+  payee       User?               @relation("Payee", fields: [payeeId], references: [id])
   post        Post?               @relation(fields: [postId], references: [id], onDelete: SetNull)
+  rewardPool  RewardPool?         @relation(fields: [rewardPoolId], references: [id])
   entitlement ContentEntitlement?
   earning     Earning?
 
@@ -737,23 +747,25 @@ enum EarningStatus {
 }
 
 model Earning {
-  id          String        @id @default(uuid(7)) @db.Uuid
-  creatorId   String        @map("creator_id") @db.Uuid
-  source      EarningSource
-  paymentId   String?       @unique @map("payment_id") @db.Uuid
-  postId      String?       @map("post_id") @db.Uuid
-  grossMinor  Int           @map("gross_minor")
-  feeMinor    Int           @map("fee_minor")
-  netMinor    Int           @map("net_minor")
-  currency    String        @default("INR") @db.Char(3)
-  status      EarningStatus
-  availableAt DateTime      @map("available_at")
-  createdAt   DateTime      @default(now()) @map("created_at")
-  updatedAt   DateTime      @updatedAt @map("updated_at")
+  id           String        @id @default(uuid(7)) @db.Uuid
+  creatorId    String        @map("creator_id") @db.Uuid
+  source       EarningSource
+  paymentId    String?       @unique @map("payment_id") @db.Uuid
+  postId       String?       @map("post_id") @db.Uuid
+  rewardPoolId String?       @map("reward_pool_id") @db.Uuid
+  grossMinor   Int           @map("gross_minor")
+  feeMinor     Int           @map("fee_minor")
+  netMinor     Int           @map("net_minor")
+  currency     String        @default("INR") @db.Char(3)
+  status       EarningStatus
+  availableAt  DateTime      @map("available_at")
+  createdAt    DateTime      @default(now()) @map("created_at")
+  updatedAt    DateTime      @updatedAt @map("updated_at")
 
-  creator User           @relation(fields: [creatorId], references: [id])
-  payment PaymentIntent? @relation(fields: [paymentId], references: [id])
-  post    Post?          @relation(fields: [postId], references: [id], onDelete: SetNull)
+  rewardPool RewardPool?    @relation(fields: [rewardPoolId], references: [id])
+  creator    User           @relation(fields: [creatorId], references: [id])
+  payment    PaymentIntent? @relation(fields: [paymentId], references: [id])
+  post       Post?          @relation(fields: [postId], references: [id], onDelete: SetNull)
 
   @@index([creatorId, status])
   @@index([status, availableAt])
@@ -793,4 +805,139 @@ model SandboxPayment {
   completedAt DateTime? @map("completed_at")
 
   @@map("sandbox_payments")
+}
+
+// ─────────────────────────── Reward pools & watch time (M5) ───────────────────────────
+
+/// Stored lifecycle. ACTIVE / COMPLETED are derived from the window while FUNDED.
+enum RewardPoolStatus {
+  DRAFT
+  FUNDED
+  DISTRIBUTED
+  CANCELLED
+}
+
+/// A real, disclosed budget funded by an organizer/sponsor and shared among creators of an
+/// event's videos in proportion to server-verified qualified watch time.
+model RewardPool {
+  id                  String           @id @default(uuid(7)) @db.Uuid
+  eventId             String           @map("event_id") @db.Uuid
+  creatorId           String           @map("creator_id") @db.Uuid
+  title               String
+  /// Disclosed funder shown to everyone (e.g. "Night Owl Presents" or a brand).
+  sponsorName         String           @map("sponsor_name")
+  rules               String           @default("")
+  budgetMinor         Int              @map("budget_minor")
+  currency            String           @default("INR") @db.Char(3)
+  /// Max share one video can receive, in basis points of the budget.
+  perVideoCapBps      Int              @default(2500) @map("per_video_cap_bps")
+  /// A video needs at least this many distinct qualified viewers to earn.
+  minQualifiedViewers Int              @default(3) @map("min_qualified_viewers")
+  startsAt            DateTime         @map("starts_at")
+  endsAt              DateTime         @map("ends_at")
+  status              RewardPoolStatus @default(DRAFT)
+  fundedAt            DateTime?        @map("funded_at")
+  distributedAt       DateTime?        @map("distributed_at")
+  /// Budget not allocated because of caps / too few eligible videos (returned in M7).
+  unallocatedMinor    Int?             @map("unallocated_minor")
+  createdAt           DateTime         @default(now()) @map("created_at")
+  updatedAt           DateTime         @updatedAt @map("updated_at")
+
+  event       Event              @relation(fields: [eventId], references: [id])
+  creator     User               @relation(fields: [creatorId], references: [id])
+  payments    PaymentIntent[]
+  allocations RewardAllocation[]
+  earnings    Earning[]
+
+  @@index([eventId])
+  @@index([status, endsAt])
+  @@map("reward_pools")
+}
+
+/// Final per-video result of a distribution (transparency + leaderboard).
+model RewardAllocation {
+  id               String   @id @default(uuid(7)) @db.Uuid
+  poolId           String   @map("pool_id") @db.Uuid
+  postId           String   @map("post_id") @db.Uuid
+  creatorId        String   @map("creator_id") @db.Uuid
+  qualifiedMs      BigInt   @map("qualified_ms")
+  qualifiedViewers Int      @map("qualified_viewers")
+  shareMinor       Int      @map("share_minor")
+  capped           Boolean  @default(false)
+  createdAt        DateTime @default(now()) @map("created_at")
+
+  pool RewardPool @relation(fields: [poolId], references: [id], onDelete: Cascade)
+  post Post       @relation(fields: [postId], references: [id], onDelete: Cascade)
+
+  @@unique([poolId, postId])
+  @@map("reward_allocations")
+}
+
+enum WatchSessionStatus {
+  ACTIVE
+  ENDED
+  /// Fraud signals: everything credited in this session is excluded.
+  FLAGGED
+}
+
+/// One continuous viewing of one video by one signed-in viewer. Opened and timed by the server.
+model WatchSession {
+  id               String             @id @default(uuid(7)) @db.Uuid
+  postId           String             @map("post_id") @db.Uuid
+  viewerId         String             @map("viewer_id") @db.Uuid
+  /// SHA-256 of the app install id; used for multi-account device checks.
+  deviceHash       String             @map("device_hash")
+  ipHash           String?            @map("ip_hash")
+  /// False when the viewer can never earn the creator rewards (own video, unverified, abuse).
+  qualifying       Boolean
+  disqualifyReason String?            @map("disqualify_reason")
+  status           WatchSessionStatus @default(ACTIVE)
+  flagReason       String?            @map("flag_reason")
+  strikes          Int                @default(0)
+  creditedMs       Int                @default(0) @map("credited_ms")
+  lastBeatAt       DateTime           @map("last_beat_at")
+  lastPositionMs   Int                @default(0) @map("last_position_ms")
+  startedAt        DateTime           @default(now()) @map("started_at")
+  endedAt          DateTime?          @map("ended_at")
+
+  post       Post             @relation(fields: [postId], references: [id], onDelete: Cascade)
+  viewer     User             @relation(fields: [viewerId], references: [id], onDelete: Cascade)
+  heartbeats WatchHeartbeat[]
+
+  @@index([viewerId, status])
+  @@index([postId, status])
+  @@index([deviceHash, startedAt])
+  @@index([ipHash, postId, startedAt])
+  @@map("watch_sessions")
+}
+
+/// Raw heartbeat audit trail. `creditedMs` is what the server decided to credit.
+model WatchHeartbeat {
+  id         String   @id @default(uuid(7)) @db.Uuid
+  sessionId  String   @map("session_id") @db.Uuid
+  receivedAt DateTime @default(now()) @map("received_at")
+  positionMs Int      @map("position_ms")
+  playing    Boolean
+  foreground Boolean
+  creditedMs Int      @map("credited_ms")
+  /// Why credit was reduced (e.g. "too_fast", "position_jump", "background").
+  note       String?
+
+  session WatchSession @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+
+  @@index([sessionId, receivedAt])
+  @@map("watch_heartbeats")
+}
+
+/// Running qualified total per (video, viewer), hard-capped at the video's duration so
+/// replays never add more than one full view per person.
+model QualifiedWatchTime {
+  postId      String   @map("post_id") @db.Uuid
+  viewerId    String   @map("viewer_id") @db.Uuid
+  qualifiedMs Int      @default(0) @map("qualified_ms")
+  updatedAt   DateTime @updatedAt @map("updated_at")
+
+  @@id([postId, viewerId])
+  @@index([postId])
+  @@map("qualified_watch_time")
 }

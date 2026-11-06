@@ -35,6 +35,7 @@ const paymentInclude = {
     },
   },
   payee: { select: { id: true, displayName: true, username: true } },
+  rewardPool: { select: { id: true, title: true } },
 } as const;
 type PaymentRow = Prisma.PaymentIntentGetPayload<{ include: typeof paymentInclude }>;
 
@@ -75,10 +76,15 @@ export class PaymentsService {
       include: paymentInclude,
     });
     if (existing) {
-      if (existing.kind !== input.kind || existing.postId !== input.postId)
+      const target =
+        input.kind === 'POOL_FUNDING'
+          ? existing.rewardPoolId === input.poolId
+          : existing.postId === input.postId;
+      if (existing.kind !== input.kind || !target)
         throw conflict('This payment key was already used for something else');
       return this.toDto(existing);
     }
+    if (input.kind === 'POOL_FUNDING') return this.createPoolFunding(input, payer);
 
     const post = await this.prisma.post.findFirst({
       where: { id: input.postId, ...visiblePostsWhere([]) },
@@ -165,6 +171,56 @@ export class PaymentsService {
     return this.toDto(saved);
   }
 
+  /** Funding a reward pool: the pool's creator pays the full budget into escrow. */
+  private async createPoolFunding(
+    input: Extract<CreateCheckoutInput, { kind: 'POOL_FUNDING' }>,
+    payer: RequestUser,
+  ): Promise<PaymentDto> {
+    const pool = await this.prisma.rewardPool.findUnique({ where: { id: input.poolId } });
+    if (!pool) throw notFound('That reward pool');
+    if (pool.creatorId !== payer.id) throw forbidden('Only the pool’s creator can fund it');
+    if (pool.status !== 'DRAFT') throw conflict('This pool is already funded');
+    if (pool.endsAt <= new Date()) throw badRequest('This pool’s window has already ended');
+    const open = await this.prisma.paymentIntent.findFirst({
+      where: {
+        rewardPoolId: pool.id,
+        kind: 'POOL_FUNDING',
+        status: 'PENDING',
+        expiresAt: { gt: new Date() },
+      },
+      include: paymentInclude,
+    });
+    if (open) return this.toDto(open);
+
+    const payment = await this.prisma.paymentIntent.create({
+      data: {
+        payerId: payer.id,
+        payeeId: null,
+        rewardPoolId: pool.id,
+        kind: 'POOL_FUNDING',
+        amountMinor: pool.budgetMinor,
+        currency: pool.currency,
+        feeBps: 0,
+        provider: this.provider.name,
+        idempotencyKey: input.idempotencyKey,
+        expiresAt: new Date(Date.now() + CHECKOUT_TTL_MS),
+      },
+    });
+    const session = await this.provider.createCheckout({
+      paymentId: payment.id,
+      amountMinor: pool.budgetMinor,
+      currency: pool.currency,
+      description: `Reward pool: ${pool.title}`,
+      returnUrl: input.returnUrl,
+    });
+    const saved = await this.prisma.paymentIntent.update({
+      where: { id: payment.id },
+      data: { providerRef: session.providerRef, checkoutUrl: session.checkoutUrl },
+      include: paymentInclude,
+    });
+    return this.toDto(saved);
+  }
+
   /**
    * Asks the provider for the real outcome and applies it. Safe to call any number of times,
    * from the app, the reconciliation timer, or both at once.
@@ -236,6 +292,28 @@ export class PaymentsService {
       });
       if (claim.count !== 1) return false;
 
+      // Pool funding: the full amount goes into the pool's escrow; no fee, no creator earning.
+      if (p.kind === 'POOL_FUNDING') {
+        const pool = await tx.rewardPool.updateMany({
+          where: { id: p.rewardPoolId!, status: 'DRAFT' },
+          data: { status: 'FUNDED', fundedAt: new Date() },
+        });
+        if (pool.count !== 1)
+          throw new Error(`Pool ${p.rewardPoolId} was not in DRAFT when funded`);
+        await this.ledger.post(
+          tx,
+          'POOL_FUNDED',
+          p.currency,
+          [
+            { account: accounts.providerClearing(p.provider), amountMinor: -p.amountMinor },
+            { account: accounts.poolEscrow(p.rewardPoolId!), amountMinor: p.amountMinor },
+          ],
+          { paymentId: p.id },
+        );
+        return true;
+      }
+      const payeeId = p.payeeId!;
+
       let source: 'TIP' | 'PHOTO_SALE' | 'VIDEO_SALE' = 'TIP';
       if (p.kind === 'UNLOCK' && p.postId) {
         await tx.contentEntitlement.createMany({
@@ -249,7 +327,7 @@ export class PaymentsService {
       const net = p.amountMinor - fee;
       const earning = await tx.earning.create({
         data: {
-          creatorId: p.payeeId,
+          creatorId: payeeId,
           source,
           paymentId: p.id,
           postId: p.postId,
@@ -267,14 +345,14 @@ export class PaymentsService {
         p.currency,
         [
           { account: accounts.providerClearing(p.provider), amountMinor: -p.amountMinor },
-          { account: accounts.creatorPending(p.payeeId), amountMinor: net, userId: p.payeeId },
+          { account: accounts.creatorPending(payeeId), amountMinor: net, userId: payeeId },
           { account: accounts.platformFees, amountMinor: fee },
         ],
         { paymentId: p.id, earningId: earning.id },
       );
       return true;
     });
-    if (fulfilled) {
+    if (fulfilled && p.payeeId) {
       await this.notifications.notify({
         userId: p.payeeId,
         type: p.kind === 'TIP' ? 'TIP_RECEIVED' : 'CONTENT_PURCHASED',
@@ -365,6 +443,7 @@ export class PaymentsService {
           }
         : null,
       payee: r.payee,
+      pool: r.rewardPool,
       createdAt: r.createdAt.toISOString(),
       succeededAt: r.succeededAt?.toISOString() ?? null,
     };
