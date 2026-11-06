@@ -230,6 +230,9 @@ describe('World ID proof of human (e2e)', () => {
       const unverified = await makeUser(app, prisma);
       const viewers = await Promise.all([1, 2].map(() => makeUser(app, prisma)));
       await verify(human, idkitResult(human.id)).expect(200);
+      // Viewers prove they're human too; a bot account's watching doesn't count.
+      for (const v of viewers) await verify(v, idkitResult(v.id)).expect(200);
+      const bot = await makeUser(app, prisma);
       const e = await prisma.event.create({
         data: {
           organizerId: org.id,
@@ -271,10 +274,12 @@ describe('World ID proof of human (e2e)', () => {
         await watch(v, hv);
         await watch(v, uv);
       }
+      await watch(bot, hv); // unverified viewer: ignored
       const live = (await http().get(`/v1/reward-pools/${pool.id}`).set(org.auth).expect(200)).body
         .data;
       const row = (id: string) => live.leaderboard.find((r: { postId: string }) => r.postId === id);
       expect(row(hv)).toMatchObject({ eligible: true, needsHuman: false, shareMinor: 100_000 });
+      expect(row(hv).qualifiedViewers).toBe(2); // the unverified viewer isn't counted
       expect(row(uv)).toMatchObject({ eligible: false, needsHuman: true, shareMinor: 0 });
 
       // Final split at the end of the window: only the verified human is paid.

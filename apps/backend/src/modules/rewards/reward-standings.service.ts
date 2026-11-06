@@ -21,7 +21,7 @@ export interface Standing {
  *  - per (video, viewer): credited time inside the pool window, capped at the video length
  *  - sessions that were flagged or never qualified are excluded entirely
  *  - videos below the minimum number of distinct qualified viewers earn nothing
- *  - in human-only pools, creators who aren't World ID–verified earn nothing
+ *  - in human-only pools, only World ID–verified viewers count, and unverified creators earn nothing
  * Then splits the budget proportionally with the per-video cap (exact paise).
  */
 @Injectable()
@@ -58,6 +58,12 @@ export class RewardStandings {
         WHERE s.qualifying AND s.status <> 'FLAGGED' AND h.credited_ms > 0
           AND h.received_at >= ${pool.startsAt} AND h.received_at < ${end}
           AND s.viewer_id <> e.author_id
+          ${
+            // Human-only pools pay for verified human attention: only World ID–verified viewers count.
+            pool.humanOnly
+              ? Prisma.sql`AND EXISTS (SELECT 1 FROM users v WHERE v.id = s.viewer_id AND v.human_verified_at IS NOT NULL)`
+              : Prisma.empty
+          }
         GROUP BY s.post_id, s.viewer_id
       )
       SELECT e.post_id, e.author_id, e.human, COALESCE(SUM(pv.ms), 0)::bigint AS qualified_ms, COUNT(pv.viewer_id)::int AS viewers

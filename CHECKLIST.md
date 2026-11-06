@@ -244,6 +244,8 @@ A UI that exists but isn't wired to the backend is `[~]`, never `[x]`.
 > 2. **Arc — Best Smart Contracts with Advanced Stablecoin Logic** ($3k) → H2 + H6 contracts (Studio URL + Studio in demo required)
 > 3. **World — Best Use of IDKit** ($2.5k, up to 2 × $1,250) → H3 + H6 (one human, one pick)
 
+> **Track picks (decided 2026-11-06):** Arc + World ID + **Arkiv**. Story: *brands pay for real attention at live events; fans who filmed it get paid.* Arc holds/pays the money, World ID proves viewers and creators are real humans, Arkiv makes the attention report publicly verifiable. Hedera x402 stays in the app as a bonus (clip licensing) — submit only if a 4th pick is allowed. **Parked:** H6 prediction game, Chainlink CRE, Swarm.
+
 ### H0 — Preparation
 - [x] Codebase built during the event (no Continuity Track needed)
 - [ ] Keep small, frequent commits from here on (judges read the git history)
@@ -286,6 +288,7 @@ A UI that exists but isn't wired to the backend is `[~]`, never `[x]`.
 - [x] Backend signs requests + verifies with World v4 API; nullifier UNIQUE(action, nullifier) stops one human verifying two accounts; signal binds proof to account
 - [x] Alternative paths tested: rejected, wrong environment/action, other account's proof, duplicate human, malformed → nothing granted (5 e2e tests)
 - [x] Only verified humans get a share of Arc pools (so only they are awarded on-chain)
+- [x] Only World ID–verified **viewers** count toward watch time in human-only pools (real human attention)
 - [ ] Integration debrief: time to first success, friction, missing docs, top improvement
 - [x] IDKit `@worldcoin/idkit/expo` 4.6.0 bundles for iOS (Hermes); Verify card on Earnings + human-only pools
 - [ ] Developer Portal app + action (app_id, rp_id, signing key) and a Simulator run on the phone
@@ -311,11 +314,14 @@ A UI that exists but isn't wired to the backend is `[~]`, never `[x]`.
 - [ ] Shared event feed of clips and photos
 
 #### H6.2 — Prediction contract on Arc (built in Arc Studio)
-- [ ] `PredictionPools`: createMarket → pick (deposit test USDC) → settle winner (MUSO allocator) → claim / claimFor (gasless relay, like H2)
-- [ ] Parimutuel payout: winners split the pool; small fixed share to the best-clip creator
-- [ ] Refund all if no one picked the winner or the match is cancelled
-- [ ] Picks lock at match start (on-chain deadline)
-- [ ] Access control, reentrancy protection, safe ERC-20 transfers, events; tests
+- [x] Reference contract `src/PredictionPools.sol`: createMarket → pick (stake test USDC) → settle (resolver) → claim / refund (anyone can relay, funds go to the staker)
+- [x] Parimutuel payout: winners split the pool by stake; optional creator share (≤ 20%) to the best-clip creator
+- [x] Refund all if no one picked the winner, the match is cancelled, or the resolver misses `resolveBy`
+- [x] Picks lock at `locksAt` (on-chain); one pick per wallet
+- [x] One human, one pick on-chain: EIP-712 pick ticket from the gatekeeper (MUSO backend after World ID) binds wallet + `humanId` (World ID nullifier), single use per market
+- [x] Ownerless and reusable (anyone can open a market with their own resolver/gatekeeper); reentrancy protection, safe ERC-20 transfers, events
+- [x] Tests: 25 Foundry tests incl. a funds-conservation fuzz test (`test/PredictionPools.t.sol`); deploy script `script/DeployPredictionPools.s.sol`
+- [ ] Rebuild in **Arc Studio** (required for the prize), review Studio's version with these tests, deploy to Arc testnet
 - [ ] Deployed address + first live market
 
 #### H6.3 — Backend (`predictions` module)

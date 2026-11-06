@@ -378,6 +378,10 @@ describe('Arc on-chain reward payouts (e2e)', () => {
         data: { humanVerifiedAt: new Date() },
       });
       const viewers = await Promise.all([1, 2].map(() => makeUser(app, prisma)));
+      await prisma.user.updateMany({
+        where: { id: { in: viewers.map((v) => v.id) } },
+        data: { humanVerifiedAt: new Date() },
+      });
       const e = await liveEvent(org);
       const poolEnd = new Date(Date.now() + 5 * 60_000);
       const pool = await createPool(org, e.id, poolEnd);
@@ -441,6 +445,10 @@ describe('Arc on-chain reward payouts (e2e)', () => {
       const carol = await makeUser(app, prisma);
       await prisma.user.update({ where: { id: carol.id }, data: { humanVerifiedAt: new Date() } });
       const viewers = await Promise.all([1, 2].map(() => makeUser(app, prisma)));
+      await prisma.user.updateMany({
+        where: { id: { in: viewers.map((v) => v.id) } },
+        data: { humanVerifiedAt: new Date() },
+      });
       const e = await liveEvent(org);
       const poolEnd = new Date(Date.now() + 5 * 60_000);
       const pool = await createPool(org, e.id, poolEnd);
