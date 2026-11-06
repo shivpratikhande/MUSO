@@ -3,6 +3,8 @@
  * 3 organizers, 5 creators, 2 supporters, each with a generated crypto-art avatar, a full
  * profile, genres, follows and a linked wallet (so their `<username>.muso.eth` ENS name resolves).
  * Creators are marked as verified humans so they can earn from human-only pools right away.
+ * Also 9 approved events for the organizers (live now, upcoming, finished) with generated
+ * posters, schedules, demo-artist lineups, followers and draft reward pools to fund in the app.
  *
  * Usage: pnpm --filter @muso/backend seed:players
  * Needs Postgres + MinIO running (same .env as the API). Prints the login table at the end.
@@ -325,6 +327,431 @@ async function replaceAvatar(userId: string, png: Buffer): Promise<string> {
   return key;
 }
 
+// ─────────── Events (3 per organizer: live now, upcoming, finished) ───────────
+
+const HOUR = 3_600_000;
+const DAY = 24 * HOUR;
+
+interface SeedEvent {
+  organizer: string;
+  title: string;
+  venue: string;
+  address: string;
+  city: string;
+  /** Offsets from now. Negative start + positive end = live now. */
+  start: number;
+  end: number;
+  policy: 'ALLOWED' | 'PHOTOS_ONLY';
+  notes?: string;
+  description: string;
+  /** Demo artists from `pnpm db:seed` (matched by username). */
+  lineup: string[];
+  schedule: { title: string; stage?: string; at: number; len?: number; artist?: string }[];
+  pool?: { title: string; sponsor: string; budgetInr: number; humanOnly: boolean; rules: string };
+}
+
+const EVENTS: SeedEvent[] = [
+  {
+    organizer: 'blockparty.mum',
+    title: 'Block Party: Rooftop Genesis',
+    venue: 'The Terrace',
+    address: 'Kamala Mills, Lower Parel',
+    city: 'Mumbai',
+    start: -1 * HOUR,
+    end: 5 * HOUR,
+    policy: 'ALLOWED',
+    description:
+      'Our first rooftop of the season. Dream-pop at golden hour, bilingual bars after dark, and a skyline full of phone lights. Film it, post it, get paid.',
+    lineup: ['nila.waves', 'kavya.k'],
+    schedule: [
+      { title: 'Doors + welcome drinks', at: 0, len: HOUR },
+      { title: 'Nila Waves', stage: 'Roof Stage', at: HOUR, len: 1.5 * HOUR, artist: 'nila.waves' },
+      { title: 'Kavya K', stage: 'Roof Stage', at: 3 * HOUR, len: 1.5 * HOUR, artist: 'kavya.k' },
+    ],
+    pool: {
+      title: 'Best Rooftop Moments',
+      sponsor: 'Ledger Lane Coffee',
+      budgetInr: 5_000,
+      humanOnly: false,
+      rules: 'Post your best clips from tonight. The pool is split by real watch time.',
+    },
+  },
+  {
+    organizer: 'blockparty.mum',
+    title: 'Gas Fees & Guitars',
+    venue: 'Antisocial',
+    address: 'Khar West',
+    city: 'Mumbai',
+    start: 5 * DAY,
+    end: 5 * DAY + 4 * HOUR,
+    policy: 'PHOTOS_ONLY',
+    notes: 'Photos only, please: the band is recording a live album.',
+    description: 'An unplugged night for builders who play. Acoustic sets, zero slide decks.',
+    lineup: ['nila.waves'],
+    schedule: [
+      { title: 'Open mic for builders', at: 0, len: 1.5 * HOUR },
+      { title: 'Nila Waves (acoustic)', at: 2 * HOUR, len: HOUR, artist: 'nila.waves' },
+    ],
+  },
+  {
+    organizer: 'blockparty.mum',
+    title: 'Block Party: Monsoon Mint',
+    venue: 'Bombay Canteen Courtyard',
+    address: 'Kamala Mills, Lower Parel',
+    city: 'Mumbai',
+    start: -12 * DAY,
+    end: -12 * DAY + 5 * HOUR,
+    policy: 'ALLOWED',
+    description: 'The rainy-season edition. Wet sneakers, warm synths, a sold-out courtyard.',
+    lineup: ['kavya.k', 'nila.waves'],
+    schedule: [
+      { title: 'Kavya K', at: HOUR, len: HOUR, artist: 'kavya.k' },
+      { title: 'Nila Waves', at: 2.5 * HOUR, len: 1.5 * HOUR, artist: 'nila.waves' },
+    ],
+  },
+  {
+    organizer: 'chainreaction',
+    title: 'Hackers & Headliners Afterparty',
+    venue: 'Bflat Bar',
+    address: 'Indiranagar 100 Ft Road',
+    city: 'Bengaluru',
+    start: -2 * HOUR,
+    end: 4 * HOUR,
+    policy: 'ALLOWED',
+    description:
+      'The hackathon is over, the demos are in, and the brass band is warming up. Verified humans only for the reward pool.',
+    lineup: ['the.brass.republic'],
+    schedule: [
+      { title: 'Demo-day toasts', at: 0, len: HOUR },
+      {
+        title: 'The Brass Republic',
+        stage: 'Main Floor',
+        at: 1.5 * HOUR,
+        len: 2 * HOUR,
+        artist: 'the.brass.republic',
+      },
+    ],
+    pool: {
+      title: 'Afterparty Highlight Reel',
+      sponsor: 'Chain Reaction Fest',
+      budgetInr: 8_000,
+      humanOnly: true,
+      rules: 'Only creators verified as unique humans earn. One person, one share.',
+    },
+  },
+  {
+    organizer: 'chainreaction',
+    title: 'Chain Reaction Fest 2026: Day 1',
+    venue: 'Palace Grounds',
+    address: 'Jayamahal Road',
+    city: 'Bengaluru',
+    start: 2 * DAY,
+    end: 2 * DAY + 10 * HOUR,
+    policy: 'ALLOWED',
+    description:
+      'Three stages, one wallet, zero paper tickets. Day 1 brings brass, boom-bap and a sunset you will want to film.',
+    lineup: ['the.brass.republic', 'kavya.k'],
+    schedule: [
+      { title: 'Gates open', at: 0, len: HOUR },
+      {
+        title: 'The Brass Republic',
+        stage: 'Genesis Stage',
+        at: 3 * HOUR,
+        len: 1.5 * HOUR,
+        artist: 'the.brass.republic',
+      },
+      { title: 'Kavya K', stage: 'Fork Stage', at: 6 * HOUR, len: HOUR, artist: 'kavya.k' },
+    ],
+    pool: {
+      title: 'Fest Day 1 Highlights',
+      sponsor: 'Hashbrown Labs',
+      budgetInr: 10_000,
+      humanOnly: true,
+      rules: 'Best clips of Day 1, split by verified watch time. Max 25% per video.',
+    },
+  },
+  {
+    organizer: 'chainreaction',
+    title: 'Chain Reaction Fest 2026: Day 2',
+    venue: 'Palace Grounds',
+    address: 'Jayamahal Road',
+    city: 'Bengaluru',
+    start: 3 * DAY,
+    end: 3 * DAY + 10 * HOUR,
+    policy: 'ALLOWED',
+    description: 'Day 2 goes deep: house at noon, techno at night, fireworks at the finale.',
+    lineup: ['saltwater.static', 'the.brass.republic'],
+    schedule: [
+      {
+        title: 'Saltwater Static',
+        stage: 'Genesis Stage',
+        at: 7 * HOUR,
+        len: 2 * HOUR,
+        artist: 'saltwater.static',
+      },
+      { title: 'Finale + fireworks', stage: 'Genesis Stage', at: 9.5 * HOUR, len: 0.5 * HOUR },
+    ],
+  },
+  {
+    organizer: 'gwei.nights',
+    title: 'Gwei Nights: Sunset Validator',
+    venue: 'Thalassa Cliffside',
+    address: 'Vagator',
+    city: 'Goa',
+    start: -2 * HOUR,
+    end: 6 * HOUR,
+    policy: 'ALLOWED',
+    description:
+      'Low fees, loud bass. A cliffside sunset set that runs deep into the night. Bring a power bank.',
+    lineup: ['saltwater.static'],
+    schedule: [
+      { title: 'Sunset warm-up', at: 0, len: 2 * HOUR },
+      {
+        title: 'Saltwater Static',
+        stage: 'Cliff Deck',
+        at: 2.5 * HOUR,
+        len: 3 * HOUR,
+        artist: 'saltwater.static',
+      },
+    ],
+    pool: {
+      title: 'Sunset Clip Bounty',
+      sponsor: 'Gwei Nights',
+      budgetInr: 3_000,
+      humanOnly: true,
+      rules: 'Sunset and drop moments. Verified humans only.',
+    },
+  },
+  {
+    organizer: 'gwei.nights',
+    title: 'Gwei Nights: Low Fee Rave',
+    venue: 'Hilltop',
+    address: 'Vagator',
+    city: 'Goa',
+    start: 7 * DAY,
+    end: 7 * DAY + 8 * HOUR,
+    policy: 'ALLOWED',
+    description: 'Our monthly rave. Entry costs less than a swap on mainnet.',
+    lineup: ['saltwater.static'],
+    schedule: [
+      {
+        title: 'Saltwater Static (all night long)',
+        at: HOUR,
+        len: 6 * HOUR,
+        artist: 'saltwater.static',
+      },
+    ],
+  },
+  {
+    organizer: 'gwei.nights',
+    title: 'Gwei Nights: Genesis Block',
+    venue: 'Curlies Beach Shack',
+    address: 'Anjuna',
+    city: 'Goa',
+    start: -20 * DAY,
+    end: -20 * DAY + 6 * HOUR,
+    policy: 'ALLOWED',
+    description: 'Where it all started: one speaker, two hundred people, and a very long sunrise.',
+    lineup: ['saltwater.static'],
+    schedule: [{ title: 'Saltwater Static', at: HOUR, len: 4 * HOUR, artist: 'saltwater.static' }],
+  },
+];
+
+const esc = (t: string) => t.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+
+/** Splits a title into at most 3 lines of ~18 characters. */
+function wrap(text: string, max = 18): string[] {
+  const lines: string[] = [];
+  let cur = '';
+  for (const w of text.split(' ')) {
+    if ((cur + ' ' + w).trim().length > max && cur) {
+      lines.push(cur);
+      cur = w;
+    } else cur = (cur + ' ' + w).trim();
+  }
+  if (cur) lines.push(cur);
+  return lines.slice(0, 3);
+}
+
+/** 1200×675 event poster: neon block grid, glow orbs, title, venue and date. */
+async function posterPng(e: SeedEvent, startsAt: Date): Promise<Buffer> {
+  const r = rng(e.title);
+  const p = PALETTES[Math.floor(r() * PALETTES.length)]!;
+  let blocks = '';
+  for (let y = 0; y < 675; y += 45) {
+    for (let x = 0; x < 1200; x += 45) {
+      const v = r();
+      if (v < 0.12)
+        blocks += `<rect x="${x + 4}" y="${y + 4}" width="37" height="37" rx="6" fill="${v < 0.05 ? p[4] : p[2]}" opacity="${0.25 + r() * 0.5}"/>`;
+    }
+  }
+  const orbs = [0, 1, 2]
+    .map(
+      (i) =>
+        `<circle cx="${700 + r() * 450}" cy="${80 + r() * 520}" r="${90 + r() * 120}" fill="${p[(i % 3) + 1]}" opacity="0.35" filter="url(#blur)"/>`,
+    )
+    .join('');
+  const title = wrap(e.title)
+    .map(
+      (l, i) =>
+        `<text x="64" y="${230 + i * 92}" font-size="82" font-weight="800">${esc(l)}</text>`,
+    )
+    .join('');
+  const date = startsAt.toLocaleDateString('en-IN', {
+    weekday: 'short',
+    day: 'numeric',
+    month: 'short',
+  });
+  const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="675" viewBox="0 0 1200 675">
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="${p[0]}"/><stop offset="1" stop-color="${p[1]}"/></linearGradient>
+    <filter id="blur"><feGaussianBlur stdDeviation="50"/></filter>
+  </defs>
+  <rect width="1200" height="675" fill="url(#bg)"/>${blocks}${orbs}
+  <rect x="0" y="0" width="1200" height="675" fill="${p[0]}" opacity="0.25"/>
+  <g font-family="Helvetica, Arial, sans-serif" fill="${p[3]}">
+    <text x="64" y="110" font-size="28" font-weight="700" letter-spacing="6" fill="${p[4]}">${esc(EVENT_ORG[e.organizer] ?? '').toUpperCase()}</text>
+    ${title}
+    <text x="64" y="600" font-size="34" font-weight="600">${esc(`${e.venue} · ${e.city} · ${date}`)}</text>
+  </g>
+</svg>`;
+  return sharp(Buffer.from(svg)).png().toBuffer();
+}
+
+const EVENT_ORG: Record<string, string> = Object.fromEntries(
+  PLAYERS.filter((p) => p.org).map((p) => [p.username, p.org!.name]),
+);
+
+async function putPublic(key: string, png: Buffer) {
+  await s3.send(
+    new PutObjectCommand({ Bucket: BUCKET, Key: key, Body: png, ContentType: 'image/png' }),
+  );
+}
+
+async function seedEvents(ids: Record<string, string>) {
+  const now = Date.now();
+  const artistRows = await prisma.artistProfile.findMany({
+    where: { user: { username: { in: [...new Set(EVENTS.flatMap((e) => e.lineup))] } } },
+    select: { id: true, user: { select: { username: true } } },
+  });
+  const artist = new Map(artistRows.map((a) => [a.user.username!, a.id]));
+  if (artist.size === 0)
+    console.warn('No demo artists found (run `pnpm db:seed`): events get no lineup.');
+
+  let pools = 0;
+  const eventIds: string[] = [];
+  for (const e of EVENTS) {
+    const organizerId = ids[e.organizer]!;
+    const startsAt = new Date(now + e.start);
+    const endsAt = new Date(now + e.end);
+    const data = {
+      description: e.description,
+      venueName: e.venue,
+      address: e.address,
+      city: e.city,
+      country: 'IN',
+      startsAt,
+      endsAt,
+      recordingPolicy: e.policy,
+      recordingNotes: e.notes ?? null,
+      reviewStatus: 'APPROVED' as const,
+      reviewedAt: new Date(),
+      cancelledAt: null,
+      deletedAt: null,
+    };
+    const existing = await prisma.event.findFirst({ where: { organizerId, title: e.title } });
+    const event = existing
+      ? await prisma.event.update({ where: { id: existing.id }, data })
+      : await prisma.event.create({ data: { organizerId, title: e.title, ...data } });
+    eventIds.push(event.id);
+
+    // Fresh poster each run (old one removed).
+    if (event.coverKey)
+      await s3.send(
+        new DeleteObjectsCommand({
+          Bucket: BUCKET,
+          Delete: { Objects: [{ Key: event.coverKey }] },
+        }),
+      );
+    const coverKey = `event-covers/${organizerId}/${randomUUID()}.png`;
+    await putPublic(coverKey, await posterPng(e, startsAt));
+    await prisma.event.update({ where: { id: event.id }, data: { coverKey } });
+
+    await prisma.eventArtist.deleteMany({ where: { eventId: event.id } });
+    await prisma.eventArtist.createMany({
+      data: e.lineup
+        .filter((h) => artist.has(h))
+        .map((h, position) => ({ eventId: event.id, artistId: artist.get(h)!, position })),
+    });
+    await prisma.eventScheduleItem.deleteMany({ where: { eventId: event.id } });
+    await prisma.eventScheduleItem.createMany({
+      data: e.schedule.map((s) => ({
+        eventId: event.id,
+        title: s.title,
+        stage: s.stage ?? null,
+        startsAt: new Date(startsAt.getTime() + s.at),
+        endsAt: s.len ? new Date(startsAt.getTime() + s.at + s.len) : null,
+        artistId: s.artist ? (artist.get(s.artist) ?? null) : null,
+      })),
+    });
+
+    // Draft pool (the organizer funds it in the app with the sandbox checkout). Kept if it exists.
+    if (e.pool) {
+      const has = await prisma.rewardPool.findFirst({
+        where: { eventId: event.id, title: e.pool.title },
+      });
+      if (!has) {
+        await prisma.rewardPool.create({
+          data: {
+            eventId: event.id,
+            creatorId: organizerId,
+            title: e.pool.title,
+            sponsorName: e.pool.sponsor,
+            rules: e.pool.rules,
+            budgetMinor: e.pool.budgetInr * 100,
+            currency: 'INR',
+            humanOnly: e.pool.humanOnly,
+            startsAt,
+            endsAt: new Date(endsAt.getTime() + 7 * DAY),
+          },
+        });
+      }
+      pools++;
+    }
+  }
+
+  // Creators and supporters follow most events; organizers follow their own.
+  const follows: { userId: string; eventId: string }[] = [];
+  PLAYERS.forEach((pl, i) => {
+    EVENTS.forEach((e, j) => {
+      const own = e.organizer === pl.username;
+      if (own || (pl.kind !== 'ORGANIZER' && (i + j) % 3 !== 0))
+        follows.push({ userId: ids[pl.username]!, eventId: eventIds[j]! });
+    });
+  });
+  await prisma.eventFollow.createMany({ data: follows, skipDuplicates: true });
+
+  console.log(
+    `Seeded ${EVENTS.length} events, ${pools} reward pools (draft until funded), ${follows.length} event follows.\n`,
+  );
+  console.table(
+    EVENTS.map((e) => ({
+      event: e.title,
+      organizer: EVENT_ORG[e.organizer],
+      city: e.city,
+      when:
+        e.start < 0 && e.end > 0
+          ? 'LIVE NOW'
+          : e.start > 0
+            ? `in ${Math.round(e.start / DAY)} days`
+            : 'finished',
+      pool: e.pool
+        ? `₹${e.pool.budgetInr.toLocaleString('en-IN')}${e.pool.humanOnly ? ' · humans only' : ''}`
+        : '',
+    })),
+  );
+}
+
 async function main() {
   const passwordHash = await hash(PLAYER_PASSWORD);
   const now = new Date();
@@ -420,6 +847,8 @@ async function main() {
     }
   });
   await prisma.follow.createMany({ data: follows, skipDuplicates: true });
+
+  await seedEvents(ids);
 
   const parent = process.env['ENS_PARENT_NAME'] ?? 'muso.eth';
   console.log(
