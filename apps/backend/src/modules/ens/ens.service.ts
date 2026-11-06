@@ -1,4 +1,4 @@
-import { Injectable, Logger } from '@nestjs/common';
+import { Injectable, Logger, OnModuleInit } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { Prisma } from '@muso/database';
 import {
@@ -44,7 +44,7 @@ const LOOKUP_CACHE_MAX = 2_000;
 const LABEL_SQL = Prisma.sql`translate(username, '._', '--')`;
 
 @Injectable()
-export class EnsService {
+export class EnsService implements OnModuleInit {
   private readonly logger = new Logger(EnsService.name);
   private l1: PublicClient | null = null;
   private readonly cache = new Map<string, { at: number; value: string | null }>();
@@ -54,6 +54,13 @@ export class EnsService {
     private readonly storage: StorageService,
     private readonly config: ConfigService<Env, true>,
   ) {}
+
+  onModuleInit(): void {
+    if (this.enabled)
+      this.logger.log(
+        `ENS names on (*.${this.parent}, ${this.config.get('ENS_CHAIN', { infer: true })})`,
+      );
+  }
 
   get enabled(): boolean {
     return this.config.get('ENS_ENABLED', { infer: true });
