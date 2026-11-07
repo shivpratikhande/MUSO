@@ -60,6 +60,14 @@ export const EnvSchema = z.object({
    */
   PAYMENTS_CURRENCY: z.enum(['INR', 'USD']).default('INR'),
   /** Demo deployments only: lets the simulated (no real money) provider run with NODE_ENV=production. */
+  /**
+   * Demo deployments without an email service: new accounts count as email-verified at sign-up
+   * (no code is sent). Leave off wherever real email delivery is set up.
+   */
+  EMAIL_AUTO_VERIFY: z
+    .enum(['true', 'false'])
+    .default('false')
+    .transform((v) => v === 'true'),
   ALLOW_SANDBOX_PAYMENTS_IN_PRODUCTION: z
     .enum(['true', 'false'])
     .default('false')

@@ -1,4 +1,5 @@
 import { ConflictException, Injectable, UnauthorizedException } from '@nestjs/common';
+import { ConfigService } from '@nestjs/config';
 import { hash, verify } from '@node-rs/argon2';
 import {
   ERROR_CODES,
@@ -10,6 +11,7 @@ import {
   type SignUpInput,
 } from '@muso/shared';
 import { Prisma } from '@muso/database';
+import type { Env } from '../../config/env.js';
 import { PrismaService } from '../../database/prisma.service.js';
 import { StorageService } from '../../storage/storage.service.js';
 import { MailService } from '../mail/mail.service.js';
@@ -39,10 +41,12 @@ export class AuthService {
     private readonly codes: AuthCodesService,
     private readonly mail: MailService,
     private readonly storage: StorageService,
+    private readonly config: ConfigService<Env, true>,
   ) {}
 
   async signUp(input: SignUpInput, meta: ClientMeta): Promise<AuthSession> {
     const passwordHash = await hash(input.password);
+    const autoVerify = this.config.get('EMAIL_AUTO_VERIFY', { infer: true });
     let user: SelectedUser;
     try {
       user = await this.prisma.user.create({
@@ -50,6 +54,7 @@ export class AuthService {
           email: input.email,
           passwordHash,
           displayName: input.displayName,
+          emailVerifiedAt: autoVerify ? new Date() : null,
           // Everyone can discover, watch and support. Other roles are chosen in onboarding.
           roles: { create: { role: 'SUPPORTER' } },
         },
@@ -65,7 +70,7 @@ export class AuthService {
       throw err;
     }
 
-    await this.sendVerificationCode(user.id, user.email);
+    if (!autoVerify) await this.sendVerificationCode(user.id, user.email);
     const tokens = await this.tokens.issue(user.id, meta);
     return { user: this.toAuthUser(user), tokens };
   }
