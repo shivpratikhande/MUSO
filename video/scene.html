@@ -83,16 +83,31 @@
    Deterministic timeline: render(t) draws the frame at t seconds.
    Cues come from the narration's word timestamps (window.WORDS, injected).
    ====================================================================== */
-const SCENES = { problem: 0, meet: 12, artists: 26, arc: 34, arkiv: 54, ens: 66, close: 78, end: 86, done: 90 };
-const VO = { problem: 1.6, meet: 12.5, artists: 26.2, arc: 34.5, arkiv: 54.5, ens: 66.5, close: 78.5 };
+const TL = window.TIMELINE || {
+  scenes: { problem: 0, meet: 12, artists: 26, arc: 34, arkiv: 54, ens: 66, close: 78, end: 86, done: 90 },
+  vo: { problem: 1.6, meet: 12.5, artists: 26.2, arc: 34.5, arkiv: 54.5, ens: 66.5, close: 78.5 },
+  dur: 90,
+};
+const SCENES = TL.scenes, VO = TL.vo, DUR = TL.dur;
 const WORDS = window.WORDS || {};
+/** What the narrator actually said when it differs from the script (or how speech-to-text heard it). */
+const ALIAS = {
+  'problem:that': ['content'], 'problem:earn': ['nothing'],
+  'artists:artists': ['artist'], 'artists:fans': ['fan'], 'artists:opt': ['obtain'], 'artists:every': ['event'],
+  'arc:usdc': ['ustc', 'usac'], 'arc:creators': ['never'],
+  'arkiv:arkev': ['archive', 'arkiv'],
+  'ens:shiv': ['shave'], 'ens:eth': ['it'], 'ens:tip': ['take'],
+  'close:fans': ['fan'], 'close:artists': ['artist'], 'close:musso': ['music', 'muso', 'muscle'],
+};
 /** Absolute time of the nth spoken word in a scene that starts with `prefix`. */
 function W(scene, prefix, nth = 0, fallback = 0) {
   const list = WORDS[scene] || [];
-  let k = 0;
-  for (const [word, start] of list) {
-    if (word.toLowerCase().replace(/[^a-z0-9']/g, '').startsWith(prefix.toLowerCase())) {
-      if (k++ === nth) return VO[scene] + start;
+  for (const pre of [prefix, ...(ALIAS[`${scene}:${prefix}`] || [])]) {
+    let k = 0;
+    for (const [word, start] of list) {
+      if (word.toLowerCase().replace(/[^a-z0-9']/g, '').startsWith(pre.toLowerCase())) {
+        if (k++ === nth) return VO[scene] + start;
+      }
     }
   }
   return VO[scene] + fallback;
@@ -742,7 +757,7 @@ function render(t) {
   let f = 0;
   for (const c of cuts) if (t >= c && t < c + 0.25) f = Math.max(f, (1 - (t - c) / 0.25) * (c === SCENES.meet || c === tLogoEnd ? 0 : 0.35));
   $('flash').style.opacity = f;
-  $('fade').style.opacity = Math.max(1 - p(t, 0, 0.6), p(t, 89.2, 0.8));
+  $('fade').style.opacity = Math.max(1 - p(t, 0, 0.6), p(t, DUR - 0.8, 0.8));
   grainCtx.putImageData(grainFrames[Math.floor(t * 30) % grainFrames.length], 0, 0);
 }
 window.render = render;

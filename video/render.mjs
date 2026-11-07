@@ -6,10 +6,10 @@
  *   PW=<dir with playwright-core> node video/render.mjs                 full video → video/out/muso-explainer.mp4
  *   PW=… node video/render.mjs --stills 5,15,40                          PNG stills → video/out/stills/
  *   PW=… node video/render.mjs --from 30 --to 40                         partial preview (no audio)
- * Steps before: node video/tts.mjs · python video/music.py
+ * Steps before: python3 video/voice.py (recorded narration; or node video/tts.mjs) · python video/music.py
  */
 import { spawn, execFileSync } from 'node:child_process';
-import { mkdirSync, readFileSync } from 'node:fs';
+import { existsSync, mkdirSync, readFileSync } from 'node:fs';
 import { createRequire } from 'node:module';
 
 const here = new URL('.', import.meta.url).pathname;
@@ -20,12 +20,14 @@ const { chromium } = require('playwright-core');
 const args = process.argv.slice(2);
 const opt = (k, d) => (args.includes(k) ? args[args.indexOf(k) + 1] : d);
 const FPS = Number(opt('--fps', 30));
-const DUR = 90;
 const words = readFileSync(`${out}/vo/words.json`, 'utf8');
+const tlFile = `${out}/vo/timeline.json`;
+const timeline = existsSync(tlFile) ? JSON.parse(readFileSync(tlFile, 'utf8')) : null;
+const DUR = timeline?.dur ?? 90;
 
 const browser = await chromium.launch();
 const page = await browser.newPage({ viewport: { width: 1920, height: 1080 } });
-await page.addInitScript(`window.WORDS = ${words};`);
+await page.addInitScript(`window.WORDS = ${words}; window.TIMELINE = ${JSON.stringify(timeline)};`);
 await page.goto(`file://${here}scene.html`);
 await page.evaluate(() => window.ready);
 await page.waitForTimeout(300);
@@ -66,7 +68,7 @@ await browser.close();
 if (partial) { console.log(`preview → ${silent}`); process.exit(0); }
 
 // ---- audio: narration at its cues, music ducked under it ----
-const VO = { problem: 1.6, meet: 12.5, artists: 26.2, arc: 34.5, arkiv: 54.5, ens: 66.5, close: 78.5 };
+const VO = timeline?.vo ?? { problem: 1.6, meet: 12.5, artists: 26.2, arc: 34.5, arkiv: 54.5, ens: 66.5, close: 78.5 };
 const ids = Object.keys(VO);
 const inputs = ids.flatMap((id) => ['-i', `${out}/vo/${id}.wav`]);
 const delayed = ids.map((id, i) => `[${i + 2}:a]aresample=48000,aformat=channel_layouts=stereo,adelay=${Math.round(VO[id] * 1000)}:all=1[v${i}]`).join(';');

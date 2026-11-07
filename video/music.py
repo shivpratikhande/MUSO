@@ -1,8 +1,10 @@
 """
 Original backing track for the explainer: 120 BPM electronic build, A minor (Am-F-C-G).
-  python video/music.py            (numpy + scipy) -> video/out/music.wav, 90 s, 48 kHz stereo
-Sections follow the scenes (2 s bars): 0-12 intro, 12 drop, 54 breath, 66 full, 78 final, 86 outro.
+  python video/music.py            (numpy + scipy) -> video/out/music.wav, 48 kHz stereo
+Sections follow the scenes in video/out/vo/timeline.json (written by voice.py), else the default
+90 s plan: intro, drop on "Meet MUSO", lighter under Arkiv, full again, final lift, outro on the end card.
 """
+import math
 import os
 import wave
 
@@ -13,7 +15,14 @@ SR = 48_000
 BPM = 120
 BEAT = 60 / BPM
 BAR = 4 * BEAT
-LEN = 90.0
+_tl = os.path.join(os.path.dirname(__file__), "out", "vo", "timeline.json")
+if os.path.exists(_tl):
+    import json
+    _t = json.load(open(_tl))
+    S, LEN = _t["scenes"], float(_t["dur"])
+else:
+    S, LEN = {"meet": 12, "arc": 34, "arkiv": 54, "ens": 66, "close": 78, "end": 86}, 90.0
+M = float(S["meet"])
 N = int(LEN * SR)
 rng = np.random.default_rng(7)
 OUT = os.path.join(os.path.dirname(__file__), "out", "music.wav")
@@ -28,7 +37,9 @@ def t_(n):
 
 def add(sig, at, gain=1.0, pan=0.0):
     i = int(at * SR)
-    if i >= N:
+    if i < 0:
+        sig, i = sig[-i:], 0
+    if i >= N or not len(sig):
         return
     sig = sig[: N - i]
     L[i : i + len(sig)] += sig * gain * (1 - max(pan, 0))
@@ -146,30 +157,33 @@ ARP = [[69, 72, 76, 72], [69, 72, 77, 72], [67, 72, 76, 72], [67, 71, 74, 71]]
 
 def level(t):
     """0 intro, 1 groove, 0.6 breath, 1.2 final, -1 outro."""
-    if t < 12:
+    if t < M:
         return 0
-    if t < 54:
+    if t < S["arkiv"]:
         return 1
-    if t < 66:
+    if t < S["ens"]:
         return 0.6
-    if t < 78:
+    if t < S["close"]:
         return 1
-    if t < 86:
+    if t < S["end"] - 0.5:
         return 1.2
     return -1
 
 
-bars = int(LEN / BAR)
-for b in range(bars):
-    at = b * BAR
+# Intro bars count up to the drop; groove bars start exactly on it.
+starts = [M - k * BAR for k in range(int(math.ceil(M / BAR)), 0, -1)] + [M + k * BAR for k in range(int((LEN - M) / BAR) + 1)]
+for b, at in enumerate(starts):
+    if at < -BAR + 0.01 or at >= LEN:
+        continue
     root, voicing = CHORDS[b % 4]
     lv = level(at)
-    cutoff = 500 + 300 * b if at < 12 else (1800 if lv != 0.6 else 1100)
+    cutoff = 500 + 300 * b if at < M else (1800 if lv != 0.6 else 1100)
     add(pad(voicing, BAR + 0.3, min(cutoff, 2400)), at, 0.32 if lv >= 0 else 0.22, 0)
     if lv == 0:
         # Intro: muted pulse on 8ths, getting brighter.
         for i in range(8):
-            add(lp(pluck(voicing[i % 4] - 12), 500 + 150 * b), at + i * BEAT / 2, 0.25)
+            if 0 <= at + i * BEAT / 2 < M:
+                add(lp(pluck(voicing[i % 4] - 12), 500 + 150 * b), at + i * BEAT / 2, 0.25)
         continue
     if lv < 0:
         continue
@@ -192,15 +206,15 @@ for b in range(bars):
         add(hat(True), at + BEAT * 3.5, 0.3)
 
 # Builds, drops and the crowd.
-add(riser(4.0), 8.0, 0.8)
-add(impact(), 12.0, 0.7)
-add(riser(2.0), 32.0, 0.5)
-add(riser(4.0), 50.0, 0.6)
-add(riser(4.0), 74.0, 0.7)
-add(impact(), 78.0, 0.6)
-add(impact(), 86.0, 0.8)
-add(crowd(12.5, lambda t: np.minimum(1, t / 2) * (0.6 + 0.4 * np.minimum(1, t / 10))), 0.0, 1.0)
-add(crowd(12.0, lambda t: np.minimum(1, t / 1.5) * np.minimum(1, (12 - t) / 3)), 78.0, 1.1)
+add(riser(4.0), M - 4, 0.8)
+add(impact(), M, 0.7)
+add(riser(2.0), S["arc"] - 2, 0.5)
+add(riser(4.0), S["arkiv"] - 4, 0.6)
+add(riser(4.0), S["close"] - 4, 0.7)
+add(impact(), S["close"], 0.6)
+add(impact(), S["end"], 0.8)
+add(crowd(M + 0.5, lambda t: np.minimum(1, t / 2) * (0.6 + 0.4 * np.minimum(1, t / 10))), 0.0, 1.0)
+add(crowd(12.0, lambda t: np.minimum(1, t / 1.5) * np.minimum(1, (12 - t) / 3)), S["close"], 1.1)
 
 # Master: gentle glue, fade out, normalise.
 mix = np.stack([L, R])
@@ -218,4 +232,4 @@ with wave.open(OUT, "wb") as w:
     w.setsampwidth(2)
     w.setframerate(SR)
     w.writeframes((mix.T * 32767).astype("<i2").tobytes())
-print(f"wrote {OUT} ({LEN:.0f} s)")
+print(f"wrote {OUT} ({LEN:.0f} s, drop at {M:.0f} s)")

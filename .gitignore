@@ -37,3 +37,4 @@ packages/contracts/broadcast/*/31337/
 *.log
 .idea/
 video/out/
+video/voice/

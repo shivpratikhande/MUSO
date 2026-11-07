@@ -1,0 +1,12 @@
+{
+  "note": "Cut list for the recorded narration (video/voice/take1-4.m4a, git-ignored). Times in seconds within each take. Picked from the cleanest delivery of each scene.",
+  "scenes": {
+    "problem": [["take1", 1.60, 12.55]],
+    "meet": [["take3", 15.80, 28.45]],
+    "artists": [["take2", 40.40, 46.55], ["take2", 47.62, 49.70]],
+    "arc": [["take3", 41.92, 47.05], ["take3", 48.34, 57.95]],
+    "arkiv": [["take4", 73.45, 81.05], ["take4", 81.85, 85.55]],
+    "ens": [["take2", 102.80, 112.75]],
+    "close": [["take3", 85.65, 95.55]]
+  }
+}
