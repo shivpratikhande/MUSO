@@ -244,7 +244,9 @@ A UI that exists but isn't wired to the backend is `[~]`, never `[x]`.
 > 2. **Arc — Best Smart Contracts with Advanced Stablecoin Logic** ($3k) → H2 + H6 contracts (Studio URL + Studio in demo required)
 > 3. **World — Best Use of IDKit** ($2.5k, up to 2 × $1,250) → H3 + H6 (one human, one pick)
 
-> **Track picks (decided 2026-11-06):** Arc + World ID + **Arkiv**. Story: *brands pay for real attention at live events; fans who filmed it get paid.* Arc holds/pays the money, World ID proves viewers and creators are real humans, Arkiv makes the attention report publicly verifiable. Hedera x402 stays in the app as a bonus (clip licensing) — submit only if a 4th pick is allowed. **Parked:** H6 prediction game, Chainlink CRE, Swarm.
+> **Track picks (updated 2026-11-07): Arc + Arkiv + ENS.** World ID is built but switched off and not submitted (no live phone run possible in time); human-only rules apply only while it is on.
+>
+> *Earlier (2026-11-06):* Arc + World ID + **Arkiv**. Story: *brands pay for real attention at live events; fans who filmed it get paid.* Arc holds/pays the money, World ID proves viewers and creators are real humans, Arkiv makes the attention report publicly verifiable. Hedera x402 stays in the app as a bonus (clip licensing) — submit only if a 4th pick is allowed. **Parked:** H6 prediction game, Chainlink CRE, Swarm.
 
 ### H0 — Preparation
 - [x] Codebase built during the event (no Continuity Track needed)
@@ -282,7 +284,7 @@ A UI that exists but isn't wired to the backend is `[~]`, never `[x]`.
 - [x] Creator wallet linked from a real phone (MetaMask mobile: pairing code + EIP-712 fallback)
 - [ ] Demo video showing Arc Studio
 
-### H3 — World ID: one real human per reward pool ($2.5k)
+### H3 — World ID: one real human per reward pool ($2.5k) — ⏸ built, switched off, not submitted
 - [x] IDKit v4 with **Proof of Human** (minimum sufficient credential — justified in README)
 - [x] Required to earn from human-only pools (all Arc pools); not used as a login
 - [x] Backend signs requests + verifies with World v4 API; nullifier UNIQUE(action, nullifier) stops one human verifying two accounts; signal binds proof to account

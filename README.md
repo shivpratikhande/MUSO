@@ -326,7 +326,9 @@ Sponsors fund MUSO reward pools to pay for **real human attention**, so they nee
 - **Code:** `apps/backend/src/modules/arkiv` (schemas, SDK gateway, sync worker, proof endpoint) and `apps/mobile/src/features/arkiv/ArkivProofCard.tsx`. Tests: `apps/backend/test/arkiv.e2e-spec.ts` (in-memory Arkiv). It covers lifetimes, read-only flags, the handover to the creator, takedowns, no double writes, and that the proof card comes from Arkiv rather than the database.
 - **Configure:** `ARKIV_ENABLED=true`, `ARKIV_WRITER_PRIVATE_KEY` (fund it with tGLM at [hub.arkiv.network/faucet](https://hub.arkiv.network/faucet)), `ARKIV_ACCESS_KEY` (from [hub.arkiv.network/access-keys](https://hub.arkiv.network/access-keys)).
 
-## World ID — one real human per reward account (ETHGlobal track)
+## World ID — one real human per reward account (built, switched off)
+
+> **Not part of our submission.** World ID is fully built and tested, but it is switched off (`WORLD_ID_ENABLED=false`) because we couldn't complete a live phone run in time. While it is off, "human-only" pools and predictions behave like normal ones, so nobody is blocked from earning. Our ETHGlobal tracks are **Arc, Arkiv and ENS**.
 
 Watch-time rewards attract farming: one person with many accounts watching their own videos. MUSO uses **World ID Proof of Human** (IDKit v4, World ID 4.0) so that **one human can verify only one MUSO account**. Reward pools can be marked **verified humans only**, and every pool funded with USDC on Arc is one. World ID isn't used for login, and MUSO stores no personal data: only an anonymous, action-scoped **nullifier**.
 
@@ -393,13 +395,13 @@ Worker: claim / refund for every pick (MUSO pays gas; funds always go to the pic
   1. Deploy `PredictionPools` (USDC on Arc).
   2. Set `PREDICTIONS_ENABLED=true` and `PREDICTIONS_CONTRACT_ADDRESS`. It uses the Arc RPC and `ARC_ALLOCATOR_PRIVATE_KEY`.
 
-## ENS — a name for every creator (`alice.muso.eth`)
+## ENS — a name for every creator (`alice.musoapp.eth`) (ETHGlobal track)
 
-Every MUSO creator gets a free ENS subname from their username: `shiv.beats` → **`shiv-beats.muso.eth`** (`.` and `_` become `-`; if two usernames map to the same label, the older account keeps it). The name resolves to the creator's **linked payout wallet**, so anyone can tip or pay them by name from any wallet, and it carries their MUSO profile as text records. Issuing names costs no gas: the records live in MUSO's database and are served through a **CCIP-Read gateway** (EIP-3668 + ENSIP-10 wildcard resolution). The only on-chain piece is one resolver contract that checks MUSO's signature.
+Every MUSO creator gets a free ENS subname from their username: `shiv.beats` → **`shiv-beats.musoapp.eth`** (`.` and `_` become `-`; if two usernames map to the same label, the older account keeps it). The name resolves to the creator's **linked payout wallet**, so anyone can tip or pay them by name from any wallet, and it carries their MUSO profile as text records. Issuing names costs no gas: the records live in MUSO's database and are served through a **CCIP-Read gateway** (EIP-3668 + ENSIP-10 wildcard resolution). The only on-chain piece is one resolver contract that checks MUSO's signature.
 
 ```
  Wallet / ENS app / viem            Ethereum (Sepolia)                          MUSO API (apps/backend/src/modules/ens)
- resolve("shiv-beats.muso.eth") ─▶ MusoOffchainResolver.resolve(name, data)
+ resolve("shiv-beats.musoapp.eth") ─▶ MusoOffchainResolver.resolve(name, data)
                                    revert OffchainLookup(url, callData)
  GET /v1/ens/gateway/{sender}/{data}.json ───────────────────────────────────▶ decode name + call (addr / text / …)
                                                                               user by label → wallet + profile
