@@ -15,12 +15,18 @@ const inter = Inter({ subsets: ['latin'], variable: '--font-inter', display: 'sw
 const SITE_URL = 'https://musofans.vercel.app';
 const TITLE = 'MUSO: Film the show. Get paid.';
 const SHARE_DESC = 'Turn concert moments into rewards.';
-const OG_IMAGE = { url: '/og-image.png', width: 1200, height: 630, alt: 'MUSO — Film the show. Get paid.' };
+const OG_IMAGE = {
+  url: '/muso-card.jpg',
+  width: 1200,
+  height: 630,
+  type: 'image/jpeg',
+  alt: 'MUSO — Film the show. Get paid.',
+};
 
 export const metadata: Metadata = {
   metadataBase: new URL(SITE_URL),
   title: TITLE,
-  description: 'Fans capture live events and earn from unlocks, tips and sponsor-funded USDC reward pools.',
+  description: 'Fans film live shows and earn from unlocks, tips and sponsor-funded USDC reward pools.',
   icons: { icon: '/favicon.svg' },
   openGraph: {
     title: TITLE,
@@ -34,7 +40,7 @@ export const metadata: Metadata = {
     card: 'summary_large_image',
     title: TITLE,
     description: SHARE_DESC,
-    images: [OG_IMAGE.url],
+    images: [{ url: OG_IMAGE.url, alt: OG_IMAGE.alt }],
   },
 };
 
