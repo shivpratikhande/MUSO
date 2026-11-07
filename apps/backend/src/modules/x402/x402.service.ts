@@ -111,8 +111,10 @@ export class X402Service {
     return `${this.config.get('PUBLIC_API_URL', { infer: true }).replace(/\/+$/, '')}/v1/x402/posts/${postId}/content`;
   }
 
-  private priceUsd(inrMinor: number) {
-    return inrToUsdMoney(inrMinor, this.config.get('X402_INR_PER_USD', { infer: true }));
+  /** Agents always pay in USD(C): ₹ prices convert at X402_INR_PER_USD; USD prices are exact. */
+  private priceUsd(minor: number, currency: string) {
+    if (currency === 'USD') return `$${(minor / 100).toFixed(2)}`;
+    return inrToUsdMoney(minor, this.config.get('X402_INR_PER_USD', { infer: true }));
   }
 
   /** x402 is opt-in per deployment; when off, every x402 route behaves as if it didn't exist. */
@@ -145,8 +147,11 @@ export class X402Service {
         event: p.event,
         artists: p.artists.map((a) => a.artist.stageName),
         price: {
-          inrMinor: p.priceMinor!,
-          usd: this.priceUsd(p.priceMinor!),
+          inrMinor:
+            p.currency === 'USD'
+              ? Math.round(p.priceMinor! * this.config.get('X402_INR_PER_USD', { infer: true }))
+              : p.priceMinor!,
+          usd: this.priceUsd(p.priceMinor!, p.currency),
           asset: 'USDC' as const,
           network: this.network,
         },
@@ -168,7 +173,7 @@ export class X402Service {
       scheme: 'exact',
       network: this.network,
       payTo: this.config.get('X402_PAY_TO', { infer: true })!,
-      price: this.priceUsd(post.priceMinor),
+      price: this.priceUsd(post.priceMinor, post.currency),
       maxTimeoutSeconds: 120,
     });
     const resource = {

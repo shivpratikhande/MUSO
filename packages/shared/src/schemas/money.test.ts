@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { CreateCheckoutSchema, feeFor, formatMoney } from '../index.js';
+import { CreateCheckoutSchema, feeFor, formatMoney, moneyRules } from '../index.js';
 
 describe('money helpers', () => {
   it('formats INR from paise', () => {
@@ -15,6 +15,15 @@ describe('money helpers', () => {
     expect(feeFor(0, 1000)).toBe(0);
   });
 
+  it('has per-currency limits and shows USD as USDC', () => {
+    expect(moneyRules('INR').minPrice).toBe(1_000);
+    expect(moneyRules('USD')).toMatchObject({ minPrice: 50, maxPrice: 10_000, minTip: 50 });
+    expect(moneyRules('EUR')).toBe(moneyRules('INR'));
+    expect(formatMoney(150, 'USD')).toBe('1.50 USDC');
+    expect(formatMoney(100, 'USD')).toBe('1 USDC');
+    expect(formatMoney(4900, 'INR')).toBe('₹49');
+  });
+
   it('bounds tips', () => {
     const base = {
       kind: 'TIP',
@@ -22,7 +31,9 @@ describe('money helpers', () => {
       idempotencyKey: '0190a6f0-0000-7000-8000-000000000002',
       returnUrl: 'muso://x',
     };
-    expect(CreateCheckoutSchema.safeParse({ ...base, amountMinor: 500 }).success).toBe(false);
+    // Widest bounds of any currency (0.50 USDC); the server applies the post's currency limits.
+    expect(CreateCheckoutSchema.safeParse({ ...base, amountMinor: 49 }).success).toBe(false);
+    expect(CreateCheckoutSchema.safeParse({ ...base, amountMinor: 50 }).success).toBe(true);
     expect(CreateCheckoutSchema.safeParse({ ...base, amountMinor: 2000 }).success).toBe(true);
     expect(CreateCheckoutSchema.safeParse({ ...base, amountMinor: 2_000_000 }).success).toBe(false);
   });

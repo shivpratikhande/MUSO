@@ -22,7 +22,8 @@ describe('post schemas', () => {
     const base = { clientRequestId: id, mediaKey: 'k', type: 'PHOTO', rightsConfirmed: true };
     expect(CreatePostSchema.parse(base).pricing).toEqual({ mode: 'FREE', tipsEnabled: true });
     const parse = (pricing: unknown) => CreatePostSchema.safeParse({ ...base, pricing }).success;
-    expect(parse({ mode: 'PAY_TO_UNLOCK', priceMinor: 500 })).toBe(false); // below ₹10
+    expect(parse({ mode: 'PAY_TO_UNLOCK', priceMinor: 49 })).toBe(false); // below 0.50 USDC
+    expect(parse({ mode: 'PAY_TO_UNLOCK', priceMinor: 600_000 })).toBe(false); // above ₹5,000
     expect(parse({ mode: 'PAY_TO_UNLOCK', priceMinor: 4900 })).toBe(true);
     expect(parse({ mode: 'PAY_WHAT_YOU_WANT', suggestedMinor: 2000, minimumMinor: 5000 })).toBe(
       false,
