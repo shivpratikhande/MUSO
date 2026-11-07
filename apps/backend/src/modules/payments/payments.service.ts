@@ -77,7 +77,6 @@ export class PaymentsService {
   }
 
   async createCheckout(input: CreateCheckoutInput, payer: RequestUser): Promise<PaymentDto> {
-    if (!payer.emailVerified) throw forbidden('Verify your email before paying');
     if (!RETURN_URL.test(input.returnUrl)) throw badRequest('Invalid return URL');
 
     // Idempotency: retrying the same request returns the same payment.
@@ -96,7 +95,10 @@ export class PaymentsService {
         throw conflict('This payment key was already used for something else');
       return this.toDto(existing);
     }
-    if (input.kind === 'POOL_FUNDING') return this.createPoolFunding(input, payer);
+    if (input.kind === 'POOL_FUNDING') {
+      if (!payer.emailVerified) throw forbidden('Verify your email before paying');
+      return this.createPoolFunding(input, payer);
+    }
 
     const post = await this.prisma.post.findFirst({
       where: { id: input.postId, ...visiblePostsWhere([]) },
@@ -119,6 +121,9 @@ export class PaymentsService {
 
     const rules = moneyRules(post.currency);
     const usdc = post.currency === 'USD';
+    // Card checkouts need a verified email. USDC is paid from the fan's own wallet, which they
+    // prove with a signature on the wallet page, so no email is needed.
+    if (!usdc && !payer.emailVerified) throw forbidden('Verify your email before paying');
     let payTo: string | null = null;
     if (usdc) {
       if (!this.config.get('ARC_ENABLED', { infer: true }))

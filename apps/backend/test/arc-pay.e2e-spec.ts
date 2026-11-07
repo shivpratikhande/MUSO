@@ -288,6 +288,9 @@ describe('Unlocks and tips in USDC on Arc, wallet to wallet (e2e)', () => {
     await checkout(fan, { kind: 'TIP', postId, amountMinor: 49 }).expect(400); // < 0.50 USDC
     await checkout(fan, { kind: 'TIP', postId, amountMinor: 20_001 }).expect(400); // > 200 USDC
     await checkout(fan, { kind: 'TIP', postId, amountMinor: 50 }).expect(201);
+    // No verified email needed: the wallet signature identifies the payer.
+    const unverified = await makeUser(app, prisma, { verified: false });
+    await checkout(unverified, { kind: 'UNLOCK', postId }).expect(201);
     // Creators price USDC posts within 0.50–100 USDC.
     await http()
       .patch(`/v1/posts/${postId}/pricing`)
