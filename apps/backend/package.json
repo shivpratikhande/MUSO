@@ -13,6 +13,7 @@
     "test:e2e": "vitest run --config ./vitest.config.e2e.ts",
     "arc:demo": "tsx scripts/arc-demo.ts",
     "arkiv:query": "tsx scripts/arkiv-query.ts",
+    "posts:usdc": "tsx scripts/posts-to-usdc.ts",
     "seed:players": "tsx scripts/seed-players.ts"
   },
   "dependencies": {

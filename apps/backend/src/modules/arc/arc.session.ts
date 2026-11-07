@@ -9,6 +9,7 @@ import { PrismaService } from '../../database/prisma.service.js';
 import { RedisService } from '../../redis/redis.service.js';
 import type { RequestUser } from '../auth/auth.types.js';
 import { ARC_CHAIN, type ArcChain } from './arc.chain.js';
+import { ArcPaymentsService } from './arc.payments.js';
 import { ArcService } from './arc.service.js';
 
 /** Signed links to the browser wallet page expire after this long. */
@@ -17,7 +18,7 @@ const LINK_TTL_MS = 30 * 60_000;
 const CODE_ALPHABET = 'ABCDEFGHJKMNPQRSTUVWXYZ23456789';
 const codeKey = (code: string) => `arc:pair:${code}`;
 
-export type ArcSessionPurpose = 'wallet' | 'fund' | 'pick';
+export type ArcSessionPurpose = 'wallet' | 'fund' | 'pick' | 'pay';
 interface SessionToken {
   u: string;
   p: ArcSessionPurpose;
@@ -26,6 +27,8 @@ interface SessionToken {
   m?: string;
   o?: number;
   s?: string;
+  /** pay: the USDC payment (unlock or tip) being paid. */
+  pay?: string;
   r: string;
   exp: number;
 }
@@ -48,6 +51,8 @@ export interface ArcSessionInfo {
   pool: { id: string; title: string; endsAt: number; suggestedUsdc: number } | null;
   /** pick: what the fan is about to stake on. */
   prediction: { question: string; optionLabel: string; stakeUsdc: number } | null;
+  /** pay: the unlock or tip, paid wallet to wallet to the creator. */
+  payment: Awaited<ReturnType<ArcPaymentsService['describe']>> | null;
 }
 
 /**
@@ -62,6 +67,7 @@ export class ArcSessionService {
     private readonly arc: ArcService,
     private readonly config: ConfigService<Env, true>,
     private readonly redis: RedisService,
+    private readonly arcPayments: ArcPaymentsService,
     @Optional() @Inject(ARC_CHAIN) private readonly chain: ArcChain | null,
   ) {}
 
@@ -77,6 +83,7 @@ export class ArcSessionService {
     returnUrl: string,
     poolId?: string,
     pick?: PickLinkParams,
+    paymentId?: string,
   ): Promise<ArcLink> {
     // Picks use the PredictionPools contract (checked by PredictionsService before linking).
     if (!this.chain && purpose !== 'pick')
@@ -88,6 +95,7 @@ export class ArcSessionService {
       if (pool.status !== 'DRAFT' || pool.arcCampaignId)
         throw conflict('This pool is already funded or closed');
     }
+    if (purpose === 'pay') await this.arcPayments.describe(paymentId!, user.id);
     const token: SessionToken = {
       u: user.id,
       p: purpose,
@@ -95,6 +103,7 @@ export class ArcSessionService {
       exp: Date.now() + LINK_TTL_MS,
     };
     if (poolId) token.pool = poolId;
+    if (paymentId) token.pay = paymentId;
     if (pick) {
       token.m = pick.market;
       token.o = pick.option;
@@ -196,6 +205,7 @@ export class ArcSessionService {
         stakeUsdc: Number(BigInt(token.s ?? '0')) / 1e6,
       };
     }
+    const payment = token.p === 'pay' ? await this.arcPayments.describe(token.pay!, token.u) : null;
     return {
       purpose: token.p,
       returnUrl: token.r,
@@ -211,6 +221,7 @@ export class ArcSessionService {
       linkedWallet: u.walletAddress ? getAddress(u.walletAddress) : null,
       pool,
       prediction,
+      payment,
     };
   }
 
@@ -220,6 +231,11 @@ export class ArcSessionService {
 
   async linkWallet(t: string | undefined, input: LinkWalletInput) {
     return this.arc.linkWallet(await this.userFor(this.parse(t)), input);
+  }
+
+  async pay(t: string | undefined, txHash: string) {
+    const token = this.parse(t, 'pay');
+    return this.arcPayments.confirm(token.pay!, token.u, txHash);
   }
 
   async fund(t: string | undefined, campaignId: number): Promise<{ poolId: string }> {

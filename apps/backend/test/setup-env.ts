@@ -23,5 +23,10 @@ process.env['ENS_ENABLED'] = 'true';
 process.env['ENS_PARENT_NAME'] = 'muso.eth';
 process.env['ENS_CHAIN'] = 'sepolia';
 process.env['ENS_SIGNER_PRIVATE_KEY'] = `0x${randomBytes(32).toString('hex')}`;
+// Arc on (chains are faked per test); new posts in INR so the sandbox checkout tests stay as is.
+process.env['ARC_ENABLED'] = 'true';
+process.env['ARC_REWARD_CAMPAIGNS_ADDRESS'] ??= '0x7cbbb1f0e9d7301c16e6d544f9a55d13030f74eb';
+process.env['ARC_ALLOCATOR_PRIVATE_KEY'] ??= `0x${randomBytes(32).toString('hex')}`;
+process.env['PAYMENTS_CURRENCY'] = 'INR';
 // Predictions: the chain is faked; the address is what the wallet page shows.
 process.env['PREDICTIONS_CONTRACT_ADDRESS'] = `0x${'ab'.repeat(20)}`;

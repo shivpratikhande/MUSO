@@ -98,6 +98,13 @@ export class ArcSessionController {
     return this.sessions.linkWallet(t, body);
   }
 
+  /** The page paid an unlock or tip in USDC; MUSO checks the transfer on-chain. */
+  @Post('session/pay')
+  @HttpCode(HttpStatus.OK)
+  pay(@Query('t') t: string | undefined, @Body() body: { txHash?: unknown }) {
+    return this.sessions.pay(t, typeof body?.txHash === 'string' ? body.txHash : '');
+  }
+
   @Post('session/fund')
   @HttpCode(HttpStatus.OK)
   fund(

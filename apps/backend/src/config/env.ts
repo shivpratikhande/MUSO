@@ -54,6 +54,11 @@ export const EnvSchema = z.object({
   FFPROBE_PATH: z.string().default('ffprobe'),
   /** Payment provider. `sandbox` simulates a hosted checkout (no real money) and is refused in production. */
   PAYMENTS_PROVIDER: z.enum(['sandbox']).default('sandbox'),
+  /**
+   * Currency of new posts. USD = USDC on Arc: fans pay creators wallet to wallet (needs
+   * ARC_ENABLED). INR uses PAYMENTS_PROVIDER.
+   */
+  PAYMENTS_CURRENCY: z.enum(['INR', 'USD']).default('INR'),
   /** Demo deployments only: lets the simulated (no real money) provider run with NODE_ENV=production. */
   ALLOW_SANDBOX_PAYMENTS_IN_PRODUCTION: z
     .enum(['true', 'false'])
@@ -216,6 +221,9 @@ function checkEnv(env: Env): string[] {
     problems.push(
       '  - ARC_REWARD_CAMPAIGNS_ADDRESS, ARC_ALLOCATOR_PRIVATE_KEY: required when ARC_ENABLED=true',
     );
+  }
+  if (env.PAYMENTS_CURRENCY === 'USD' && !env.ARC_ENABLED) {
+    problems.push('  - PAYMENTS_CURRENCY=USD (USDC on Arc) needs ARC_ENABLED=true');
   }
   if (
     env.PREDICTIONS_ENABLED &&

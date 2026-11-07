@@ -69,30 +69,37 @@ export class EarningsService {
   }
 
   async summary(creatorId: string): Promise<EarningsSummary> {
+    // One currency per screen: the platform's (USD = USDC on Arc).
+    const currency = this.config.get('PAYMENTS_CURRENCY', { infer: true });
     const [byStatus, bySource, totals, top, recent] = await Promise.all([
       this.prisma.earning.groupBy({
         by: ['status'],
-        where: { creatorId },
+        where: { creatorId, currency },
         _sum: { netMinor: true },
       }),
       this.prisma.earning.groupBy({
         by: ['source'],
-        where: { creatorId, status: { not: 'REVERSED' } },
+        where: { creatorId, currency, status: { not: 'REVERSED' } },
         _sum: { grossMinor: true },
       }),
       this.prisma.earning.aggregate({
-        where: { creatorId, status: { notIn: ['REVERSED', 'ESTIMATED'] } },
+        where: { creatorId, currency, status: { notIn: ['REVERSED', 'ESTIMATED'] } },
         _sum: { grossMinor: true, feeMinor: true, netMinor: true },
       }),
       this.prisma.earning.groupBy({
         by: ['postId'],
-        where: { creatorId, postId: { not: null }, status: { notIn: ['REVERSED', 'ESTIMATED'] } },
+        where: {
+          creatorId,
+          currency,
+          postId: { not: null },
+          status: { notIn: ['REVERSED', 'ESTIMATED'] },
+        },
         _sum: { netMinor: true },
         _count: { _all: true },
         orderBy: { _sum: { netMinor: 'desc' } },
         take: 5,
       }),
-      this.list(creatorId, 20),
+      this.list(creatorId, 20, currency),
     ]);
     const topMedia = await this.prisma.postMedia.findMany({
       where: { postId: { in: top.map((t) => t.postId!) }, position: 0 },
@@ -100,9 +107,10 @@ export class EarningsService {
     });
     const thumbs = new Map(topMedia.map((m) => [m.postId, m.thumbKey]));
     // Live, non-binding estimate from running reward pools (never stored, never withdrawable).
-    const estimated = await this.standings.estimatedForCreator(creatorId);
+    // (Estimates come from INR pools; USDC pools pay on-chain and show on the pool screen.)
+    const estimated = currency === 'INR' ? await this.standings.estimatedForCreator(creatorId) : 0;
     return {
-      currency: 'INR',
+      currency,
       byStatus: Object.fromEntries(
         STATUSES.map((s) => [
           s,
@@ -130,14 +138,21 @@ export class EarningsService {
     };
   }
 
-  async list(creatorId: string, take: number): Promise<EarningDto[]> {
+  async list(creatorId: string, take: number, currency?: string): Promise<EarningDto[]> {
+    const explorer = this.config.get('ARC_EXPLORER_URL', { infer: true }).replace(/\/$/, '');
     const rows = await this.prisma.earning.findMany({
-      where: { creatorId },
+      where: { creatorId, ...(currency ? { currency } : {}) },
       orderBy: { createdAt: 'desc' },
       take,
       include: {
         post: { select: { id: true, media: { select: { thumbKey: true }, take: 1 } } },
-        payment: { select: { payer: { select: { displayName: true, username: true } } } },
+        payment: {
+          select: {
+            provider: true,
+            providerRef: true,
+            payer: { select: { displayName: true, username: true } },
+          },
+        },
       },
     });
     return Promise.all(
@@ -150,6 +165,11 @@ export class EarningsService {
         netMinor: e.netMinor,
         availableAt: e.availableAt.toISOString(),
         createdAt: e.createdAt.toISOString(),
+        currency: e.currency,
+        txUrl:
+          e.payment?.provider === 'arc' && e.payment.providerRef
+            ? `${explorer}/tx/${e.payment.providerRef}`
+            : null,
         post: e.post
           ? { id: e.post.id, thumbUrl: await this.storage.privateUrl(e.post.media[0]?.thumbKey) }
           : null,

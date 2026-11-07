@@ -2,8 +2,9 @@ import { Inject, Injectable, Logger } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import type { PaymentIntent, Prisma } from '@muso/database';
 import {
-  MIN_PRICE_MINOR,
   feeFor,
+  formatMoney,
+  moneyRules,
   type CreateCheckoutInput,
   type Paginated,
   type PaymentDto,
@@ -29,6 +30,8 @@ import { LedgerService, accounts } from './ledger.service.js';
 import { PAYMENT_PROVIDER, type PaymentProvider } from './providers/payment-provider.js';
 
 const CHECKOUT_TTL_MS = 30 * 60_000;
+/** USDC on Arc: the fan's wallet pays the creator's wallet directly. */
+export const ARC_PROVIDER = 'arc';
 /** Deep-link schemes a hosted checkout may return to. */
 const RETURN_URL = /^(muso|exp|exps):\/\//;
 
@@ -67,6 +70,9 @@ export class PaymentsService {
       feeBpsTips: this.config.get('PLATFORM_FEE_BPS_TIPS', { infer: true }),
       testMode: this.provider.testMode,
       provider: this.provider.name,
+      currency: this.config.get('PAYMENTS_CURRENCY', { infer: true }),
+      usdcOnArc: this.config.get('ARC_ENABLED', { infer: true }),
+      feeBpsUsdc: 0,
     };
   }
 
@@ -111,6 +117,21 @@ export class PaymentsService {
     if (await isBlockedEitherWay(this.prisma, payer.id, post.authorId))
       throw forbidden('You can’t pay this creator');
 
+    const rules = moneyRules(post.currency);
+    const usdc = post.currency === 'USD';
+    let payTo: string | null = null;
+    if (usdc) {
+      if (!this.config.get('ARC_ENABLED', { infer: true }))
+        throw badRequest('USDC payments aren’t enabled on this server');
+      const payee = await this.prisma.user.findUnique({
+        where: { id: post.authorId },
+        select: { walletAddress: true },
+      });
+      if (!payee?.walletAddress)
+        throw badRequest('This creator hasn’t linked a USDC wallet yet, so they can’t be paid.');
+      payTo = payee.walletAddress;
+    }
+
     let amountMinor: number;
     let feeBps: number;
     if (input.kind === 'UNLOCK') {
@@ -135,17 +156,24 @@ export class PaymentsService {
       if (post.monetizationMode === 'PAY_TO_UNLOCK') {
         amountMinor = post.priceMinor!; // always the server's current price, never the client's
       } else {
-        const min = Math.max(post.minimumMinor ?? MIN_PRICE_MINOR, MIN_PRICE_MINOR);
+        const min = Math.max(post.minimumMinor ?? rules.minPrice, rules.minPrice);
         if (!input.amountMinor) throw badRequest('Choose an amount');
-        if (input.amountMinor < min) throw badRequest(`The minimum is ₹${min / 100}`);
+        if (input.amountMinor < min)
+          throw badRequest(`The minimum is ${formatMoney(min, post.currency)}`);
         amountMinor = input.amountMinor;
       }
       feeBps = this.config.get('PLATFORM_FEE_BPS_SALES', { infer: true });
     } else {
       if (!post.tipsEnabled) throw badRequest('Tips are turned off for this post');
+      if (input.amountMinor < rules.minTip || input.amountMinor > rules.maxTip)
+        throw badRequest(
+          `Tips are ${formatMoney(rules.minTip, post.currency)} to ${formatMoney(rules.maxTip, post.currency)}`,
+        );
       amountMinor = input.amountMinor;
       feeBps = this.config.get('PLATFORM_FEE_BPS_TIPS', { infer: true });
     }
+    // Wallet to wallet: the creator receives the full amount on Arc.
+    if (usdc) feeBps = 0;
 
     const payment = await this.prisma.paymentIntent.create({
       data: {
@@ -156,12 +184,15 @@ export class PaymentsService {
         amountMinor,
         currency: post.currency,
         feeBps,
-        provider: this.provider.name,
+        provider: usdc ? ARC_PROVIDER : this.provider.name,
         idempotencyKey: input.idempotencyKey,
         message: input.kind === 'TIP' ? (input.message ?? null) : null,
         expiresAt: new Date(Date.now() + CHECKOUT_TTL_MS),
       },
+      include: paymentInclude,
     });
+    // USDC: the app opens MUSO's wallet page (POST /payments/:id/arc/pay-link) to pay `payTo`.
+    if (payTo) return this.toDto(payment);
     const session = await this.provider.createCheckout({
       paymentId: payment.id,
       amountMinor,
@@ -234,7 +265,11 @@ export class PaymentsService {
   async verify(paymentId: string, viewer: RequestUser | null): Promise<PaymentDto> {
     const p = await this.prisma.paymentIntent.findUnique({ where: { id: paymentId } });
     if (!p || (viewer && p.payerId !== viewer.id)) throw notFound('That payment');
-    if (p.status === 'PENDING' && p.providerRef) {
+    if (p.provider === ARC_PROVIDER) {
+      // Settled only by confirmArcPayment (an on-chain transfer MUSO checked); otherwise it expires.
+      if (p.status === 'PENDING' && p.expiresAt <= new Date())
+        await this.finish(p.id, 'EXPIRED', 'Not paid in time. No USDC was taken.');
+    } else if (p.status === 'PENDING' && p.providerRef) {
       const remote = await this.provider.fetchStatus(p.providerRef);
       if (remote.status === 'succeeded') {
         // Never trust amounts from anywhere but our own record; mismatches are not fulfilled.
@@ -313,6 +348,37 @@ export class PaymentsService {
     return { paymentId: intent.id, alreadyRecorded: false };
   }
 
+  /**
+   * A USDC payment the Arc module has checked on-chain: `txHash` moved exactly this amount from
+   * the payer's linked wallet to the creator's. Runs the normal fulfilment once; a transaction
+   * can settle only one payment (UNIQUE provider + providerRef). An expired checkout is still
+   * honoured, because the money really moved.
+   */
+  async confirmArcPayment(paymentId: string, txHash: string): Promise<PaymentDto> {
+    const p = await this.prisma.paymentIntent.findUnique({ where: { id: paymentId } });
+    if (!p || p.provider !== ARC_PROVIDER) throw notFound('That payment');
+    if (p.status === 'SUCCEEDED') {
+      if (p.providerRef !== txHash) throw conflict('This payment was already made');
+    } else {
+      try {
+        const claimed = await this.prisma.paymentIntent.updateMany({
+          where: { id: p.id, status: { in: ['PENDING', 'EXPIRED'] }, providerRef: null },
+          data: { status: 'PENDING', providerRef: txHash, failureReason: null },
+        });
+        if (claimed.count !== 1) throw conflict('This payment can’t be completed any more');
+      } catch (err) {
+        if (isUniqueViolation(err)) throw conflict('That transaction already paid for something');
+        throw err;
+      }
+      await this.fulfill({ ...p, status: 'PENDING', providerRef: txHash });
+    }
+    const row = await this.prisma.paymentIntent.findUniqueOrThrow({
+      where: { id: paymentId },
+      include: paymentInclude,
+    });
+    return this.toDto(row);
+  }
+
   /** Re-checks payments the app never came back for. Returns how many were checked. */
   async reconcilePending(olderThanMs = 30_000): Promise<number> {
     const pending = await this.prisma.paymentIntent.findMany({
@@ -385,6 +451,8 @@ export class PaymentsService {
       }
       const fee = feeFor(p.amountMinor, p.feeBps);
       const net = p.amountMinor - fee;
+      // USDC on Arc already reached the creator's wallet: record it as paid, nothing to hold.
+      const direct = p.provider === ARC_PROVIDER;
       const earning = await tx.earning.create({
         data: {
           creatorId: payeeId,
@@ -395,10 +463,24 @@ export class PaymentsService {
           feeMinor: fee,
           netMinor: net,
           currency: p.currency,
-          status: 'PENDING',
-          availableAt: new Date(Date.now() + holdMs),
+          status: direct ? 'PAID' : 'PENDING',
+          availableAt: new Date(direct ? Date.now() : Date.now() + holdMs),
         },
       });
+      if (direct) {
+        await this.ledger.post(
+          tx,
+          'PAYMENT_CAPTURED',
+          p.currency,
+          [
+            { account: accounts.providerClearing(p.provider), amountMinor: -p.amountMinor },
+            { account: accounts.creatorWallet(payeeId), amountMinor: net, userId: payeeId },
+            { account: accounts.platformFees, amountMinor: fee },
+          ],
+          { paymentId: p.id, earningId: earning.id },
+        );
+        return true;
+      }
       await this.ledger.post(
         tx,
         'PAYMENT_CAPTURED',
@@ -493,7 +575,7 @@ export class PaymentsService {
       creatorReceivesMinor: r.amountMinor - fee,
       checkoutUrl: r.status === 'PENDING' ? r.checkoutUrl : null,
       provider: r.provider,
-      testMode: this.provider.testMode,
+      testMode: r.provider === ARC_PROVIDER ? true : this.provider.testMode,
       failureReason: r.failureReason,
       post: r.post
         ? {
@@ -506,6 +588,10 @@ export class PaymentsService {
       pool: r.rewardPool,
       createdAt: r.createdAt.toISOString(),
       succeededAt: r.succeededAt?.toISOString() ?? null,
+      txUrl:
+        r.provider === ARC_PROVIDER && r.providerRef
+          ? `${this.config.get('ARC_EXPLORER_URL', { infer: true }).replace(/\/$/, '')}/tx/${r.providerRef}`
+          : null,
     };
   }
 }

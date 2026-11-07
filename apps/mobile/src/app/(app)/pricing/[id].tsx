@@ -38,7 +38,12 @@ function Editor({ post }: { post: PostDto }) {
       <AppText tone="muted">
         Changes apply to new buyers. Everyone who already unlocked it keeps access.
       </AppText>
-      <PricingPicker value={pricing} onChange={setPricing} disabled={save.isPending} />
+      <PricingPicker
+        value={pricing}
+        onChange={setPricing}
+        disabled={save.isPending}
+        currency={post.monetization.currency}
+      />
       <FormError message={save.isError ? errorMessage(save.error) : null} />
       <Button label="Save price" loading={save.isPending} onPress={() => save.mutate()} />
     </>

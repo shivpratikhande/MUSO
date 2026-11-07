@@ -88,6 +88,12 @@ class FakeArcChain implements ArcChain {
       types,
     }).catch(() => false);
   }
+  async usdcTransfers() {
+    return null;
+  }
+  async findUsdcTransfer() {
+    return null;
+  }
 }
 
 describe('Arc on-chain reward payouts (e2e)', () => {

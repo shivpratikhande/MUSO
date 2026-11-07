@@ -4,6 +4,7 @@ import { toEventSelector, toFunctionSelector } from 'viem';
 const SELECTORS = {
   createCampaign: toFunctionSelector('createCampaign(string,uint256,uint256,address,uint64)'),
   approve: toFunctionSelector('approve(address,uint256)'),
+  transfer: toFunctionSelector('transfer(address,uint256)'),
   allowance: toFunctionSelector('allowance(address,address)'),
   balanceOf: toFunctionSelector('balanceOf(address)'),
   campaignCreated: toEventSelector(
@@ -12,7 +13,8 @@ const SELECTORS = {
 };
 
 /**
- * MUSO's wallet page: links a payout wallet (sign a message), stakes a prediction pick
+ * MUSO's wallet page: links a payout wallet (sign a message), pays an unlock or tip in USDC
+ * straight to the creator's wallet, stakes a prediction pick
  * (approve USDC + pick with MUSO's signed ticket), or funds a reward pool on Arc
  * (approve USDC + createCampaign with MUSO as allocator, then link it to the pool). It talks to
  * the wallet through the standard injected provider (EIP-1193), so it works in wallet apps'
@@ -76,7 +78,7 @@ const txLink = (h) => '<a href="' + info.chain.explorerUrl + '/tx/' + h + '" tar
 function steps(list, current) {
   $('steps').innerHTML = list.map((s, i) => '<li class="' + (i < current ? 'done' : i === current ? 'now' : '') + '">' + s + '</li>').join('');
 }
-const PAGE_VERSION = '6';
+const PAGE_VERSION = '7';
 function report(m) {
   // Lets MUSO see wallet errors it can't reproduce (no keys or personal data, just the message).
   const ua = navigator.userAgent.slice(0, 160);
@@ -226,6 +228,22 @@ async function runPick() {
   done('You picked <strong>' + tk.optionLabel + '</strong> with ' + p.stakeUsdc + ' test USDC (' + txLink(r.transactionHash) + '). Your stake sits in the PredictionPools contract until the result; if you win, MUSO sends your winnings to this wallet and pays the gas.');
 }
 
+async function runPay() {
+  const p = info.payment;
+  const S = ['Connect your wallet', 'Verify it’s yours (signature, free)', 'Send ' + p.amountUsdc + ' USDC to ' + p.creator, 'MUSO checks the payment on Arc'];
+  steps(S, 0); await connect();
+  steps(S, 1); await linkWallet();
+  const amount = BigInt(p.amountMicro);
+  const bal = await call(info.usdc, SEL.balanceOf + pad(account));
+  if (bal < amount) throw new Error('This wallet has ' + (Number(bal) / 1e6).toFixed(2) + ' USDC on Arc Testnet; you need ' + p.amountUsdc + ' plus a little for gas.\\nGet test USDC at https://faucet.circle.com (choose Arc Testnet).');
+  steps(S, 2);
+  const r = await send(info.usdc, SEL.transfer + pad(p.payTo) + pad(amount.toString(16)));
+  steps(S, 3);
+  await api('POST', 'session/pay', { txHash: r.transactionHash });
+  steps(S, 4);
+  done((p.kind === 'TIP' ? 'Tip sent: ' : 'Unlocked. ') + '<strong>' + p.amountUsdc + ' USDC</strong> went straight to ' + p.creator + '’s wallet (' + txLink(r.transactionHash) + '). Go back to MUSO' + (p.kind === 'TIP' ? '.' : ' to see it.'));
+}
+
 /** Pairing code: from /w/CODE, or typed in when the wallet app opened only the site root. */
 function askCode(message) {
   return new Promise((resolve) => {
@@ -261,7 +279,14 @@ async function resolveToken() {
     info = await api('GET', 'session');
     $('back').href = info.returnUrl;
     $('foot').innerHTML = 'Contract <a class="mono" target="_blank" rel="noopener" href="' + info.chain.explorerUrl + '/address/' + info.contract + '">' + short(info.contract) + '</a> · built in Arc Studio';
-    if (info.purpose === 'pick') {
+    if (info.purpose === 'pay') {
+      const p = info.payment;
+      $('title').textContent = p.kind === 'TIP' ? 'Tip ' + p.creator + ' ' + p.amountUsdc + ' USDC' : 'Unlock for ' + p.amountUsdc + ' USDC';
+      $('intro').textContent = (p.caption ? '“' + p.caption + '”. ' : '') + 'Your USDC goes straight to ' + p.creator + '’s wallet on Arc. MUSO never holds it, and checks the payment on-chain. Arc Testnet: test USDC only.';
+      $('foot').innerHTML = 'Paying <a class="mono" target="_blank" rel="noopener" href="' + info.chain.explorerUrl + '/address/' + p.payTo + '">' + short(p.payTo) + '</a> · USDC on Arc';
+      $('go').textContent = 'Connect wallet & pay';
+      $('go').onclick = () => { $('err').style.display = 'none'; $('go').disabled = true; runPay().catch(fail); };
+    } else if (info.purpose === 'pick') {
       $('title').textContent = 'Pick “' + info.prediction.optionLabel + '”';
       $('intro').textContent = info.prediction.question + ' You stake ' + info.prediction.stakeUsdc + ' test USDC. It goes into the PredictionPools contract, not to MUSO, and winners split the pool. Testnet prediction game: no real money.';
       $('go').textContent = 'Connect wallet & pick';

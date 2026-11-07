@@ -280,7 +280,7 @@ export default function EventDetailScreen() {
                 <Card inverse>
                   <View style={{ flexDirection: 'row', justifyContent: 'space-between' }}>
                     <AppText variant="heading" tone="inverse">
-                      {formatMoney(p.budgetMinor)} pool
+                      {formatMoney(p.budgetMinor, p.currency)} pool
                     </AppText>
                     <Pill
                       label={p.status === 'ACTIVE' ? '● Active' : p.status.toLowerCase()}

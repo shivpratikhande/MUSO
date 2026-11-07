@@ -1,7 +1,10 @@
 import { Injectable } from '@nestjs/common';
+import { ConfigService } from '@nestjs/config';
 import { Prisma } from '@muso/database';
 import {
   eventStatus,
+  formatMoney,
+  moneyRules,
   parseHashtags,
   parseMentions,
   type CreatePostSchema,
@@ -12,6 +15,7 @@ import {
   type PresignedPostMedia,
 } from '@muso/shared';
 import type { z } from 'zod';
+import type { Env } from '../../config/env.js';
 import { decodeCursor, encodeCursor } from '../../common/cursor.js';
 import {
   badRequest,
@@ -64,6 +68,23 @@ export function assertMaySell(
   }
 }
 
+/** Exact price limits for the post's currency (the schema only checks the widest bounds). */
+export function assertPriceLimits(pricing: Pricing, currency: string): void {
+  const r = moneyRules(currency);
+  const amounts =
+    pricing.mode === 'PAY_TO_UNLOCK'
+      ? [pricing.priceMinor]
+      : pricing.mode === 'PAY_WHAT_YOU_WANT'
+        ? [pricing.suggestedMinor, pricing.minimumMinor ?? r.minPrice]
+        : [];
+  for (const a of amounts) {
+    if (a < r.minPrice || a > r.maxPrice)
+      throw badRequest(
+        `Prices must be between ${formatMoney(r.minPrice, currency)} and ${formatMoney(r.maxPrice, currency)}`,
+      );
+  }
+}
+
 const EXT: Record<string, string> = {
   'image/jpeg': 'jpg',
   'image/png': 'png',
@@ -91,6 +112,7 @@ export class PostsService {
     private readonly queue: MediaQueue,
     private readonly notifications: NotificationsService,
     private readonly derivatives: MediaDerivatives,
+    private readonly config: ConfigService<Env, true>,
   ) {}
 
   /**
@@ -110,6 +132,7 @@ export class PostsService {
     });
     if (!post) throw notFound('That post');
     if (post.authorId !== viewer.id) throw forbidden('Only the creator can change the price');
+    assertPriceLimits(pricing, post.currency);
     assertMaySell(
       pricing,
       post.artists.map((a) => a.artist),
@@ -215,6 +238,8 @@ export class PostsService {
     // Fan captures are never "official"; only an artist posting a tag of themselves is.
     const isOfficial = artists.some((a) => a.userId === user.id);
     assertMaySell(input.pricing, artists, user.id);
+    const currency = this.config.get('PAYMENTS_CURRENCY', { infer: true });
+    assertPriceLimits(input.pricing, currency);
 
     let post;
     try {
@@ -226,6 +251,7 @@ export class PostsService {
           caption: input.caption,
           hashtags: parseHashtags(input.caption),
           ...pricingColumns(input.pricing),
+          currency,
           isOfficial,
           rightsConfirmedAt: new Date(),
           clientRequestId: input.clientRequestId,

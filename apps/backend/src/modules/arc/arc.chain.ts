@@ -5,6 +5,7 @@ import {
   getAddress,
   http,
   parseAbi,
+  parseEventLogs,
   type Address,
   type Hex,
 } from 'viem';
@@ -45,6 +46,19 @@ export interface ArcChain {
    * as a plain message (personal_sign) or as EIP-712 typed data (walletLinkTypedData).
    */
   verifySignature(address: Address, message: string, signature: Hex): Promise<boolean>;
+  /**
+   * USDC transfers made by a transaction (null while it isn't mined). `ok` is false when the
+   * transaction reverted. `at` is the block time (unix seconds).
+   */
+  usdcTransfers(hash: Hex): Promise<UsdcTransfers | null>;
+  /** Newest transaction in recent blocks that sent exactly `value` USDC from → to, mined at or after `since` (unix s). */
+  findUsdcTransfer(from: Address, to: Address, value: bigint, since: number): Promise<Hex | null>;
+}
+
+export interface UsdcTransfers {
+  ok: boolean;
+  at: number;
+  transfers: { from: Address; to: Address; value: bigint }[];
 }
 
 export const REWARD_CAMPAIGNS_ABI = parseAbi([
@@ -57,10 +71,15 @@ export const REWARD_CAMPAIGNS_ABI = parseAbi([
   'function claimFor(uint256 id, address participant)',
 ]);
 
+const TRANSFER_EVENT = parseAbi([
+  'event Transfer(address indexed from, address indexed to, uint256 value)',
+]);
+
 export class ViemArcChain implements ArcChain {
   readonly contract: Address;
   readonly allocator: Address;
   readonly explorerUrl: string;
+  private readonly usdc: Address;
   private readonly chainId: number;
   private readonly pub;
   private readonly wallet;
@@ -76,6 +95,7 @@ export class ViemArcChain implements ArcChain {
     this.contract = getAddress(env.ARC_REWARD_CAMPAIGNS_ADDRESS!);
     this.allocator = account.address;
     this.explorerUrl = env.ARC_EXPLORER_URL.replace(/\/$/, '');
+    this.usdc = getAddress(env.ARC_USDC_ADDRESS);
     this.chainId = env.ARC_CHAIN_ID;
     this.pub = createPublicClient({ chain, transport: http() });
     this.wallet = createWalletClient({ chain, account, transport: http() });
@@ -145,6 +165,57 @@ export class ViemArcChain implements ArcChain {
     return this.pub
       .verifyTypedData({ address, signature, ...walletLinkTypedData(message, this.chainId), types })
       .catch(() => false);
+  }
+
+  async usdcTransfers(hash: Hex): Promise<UsdcTransfers | null> {
+    const receipt = await this.pub.getTransactionReceipt({ hash }).catch((err: Error) => {
+      if (err.name === 'TransactionReceiptNotFoundError') return null;
+      throw err;
+    });
+    if (!receipt) return null;
+    const block = await this.pub.getBlock({ blockNumber: receipt.blockNumber });
+    const logs = parseEventLogs({
+      abi: TRANSFER_EVENT,
+      logs: receipt.logs.filter((l) => getAddress(l.address) === this.usdc),
+    });
+    return {
+      ok: receipt.status === 'success',
+      at: Number(block.timestamp),
+      transfers: logs.map((l) => ({
+        from: getAddress(l.args.from),
+        to: getAddress(l.args.to),
+        value: l.args.value,
+      })),
+    };
+  }
+
+  async findUsdcTransfer(
+    from: Address,
+    to: Address,
+    value: bigint,
+    since: number,
+  ): Promise<Hex | null> {
+    // Public RPCs cap log ranges, so walk back in chunks over the last ~20k blocks.
+    const CHUNK = 5_000n;
+    const latest = await this.pub.getBlockNumber();
+    for (let end = latest; end > latest - 20_000n && end > 0n; end -= CHUNK) {
+      const start = end - CHUNK + 1n > 0n ? end - CHUNK + 1n : 0n;
+      const logs = await this.pub.getLogs({
+        address: this.usdc,
+        event: TRANSFER_EVENT[0],
+        args: { from, to },
+        fromBlock: start,
+        toBlock: end,
+      });
+      const hit = logs.reverse().find((l) => l.args.value === value);
+      if (hit) {
+        const block = await this.pub.getBlock({ blockNumber: hit.blockNumber });
+        return Number(block.timestamp) >= since ? hit.transactionHash : null;
+      }
+      const first = await this.pub.getBlock({ blockNumber: start });
+      if (Number(first.timestamp) < since) return null;
+    }
+    return null;
   }
 
   private async send(hash: Hex): Promise<Hex> {

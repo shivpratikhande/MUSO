@@ -16,11 +16,11 @@ const ago = (iso: string | null) => {
   if (s < 86400) return `${Math.floor(s / 3600)}h`;
   return `${Math.floor(s / 86400)}d`;
 };
-/** "₹49" for fixed prices, "₹49+" (from minimum) for pay-what-you-want. */
+/** "1.5 USDC" / "₹49" for fixed prices, "…+" (from minimum) for pay-what-you-want. */
 const unlockLabel = (p: PostDto) =>
   p.monetization.mode === 'PAY_TO_UNLOCK'
-    ? formatMoney(p.monetization.priceMinor ?? 0)
-    : `${formatMoney(p.monetization.minimumMinor ?? p.monetization.suggestedMinor ?? 0)}${p.monetization.minimumMinor ? '+' : ' suggested'}`;
+    ? formatMoney(p.monetization.priceMinor ?? 0, p.monetization.currency)
+    : `${formatMoney(p.monetization.minimumMinor ?? p.monetization.suggestedMinor ?? 0, p.monetization.currency)}${p.monetization.minimumMinor ? '+' : ' suggested'}`;
 const mmss = (ms: number) =>
   `${Math.floor(ms / 60000)}:${String(Math.floor((ms % 60000) / 1000)).padStart(2, '0')}`;
 

@@ -6,6 +6,8 @@ export const accounts = {
   providerClearing: (provider: string) => `provider:${provider}:clearing`,
   creatorPending: (userId: string) => `creator:${userId}:pending`,
   creatorAvailable: (userId: string) => `creator:${userId}:available`,
+  /** Paid straight to the creator's own wallet (USDC on Arc); MUSO never held it. */
+  creatorWallet: (userId: string) => `creator:${userId}:wallet`,
   platformFees: 'platform:fees',
   poolEscrow: (poolId: string) => `pool:${poolId}:escrow`,
 };

@@ -23,12 +23,14 @@ import {
   type LinkArcCampaignInput,
   type LinkWalletInput,
   type MyWallet,
+  type PaymentDto,
   type RewardPoolDetail,
   type WalletChallenge,
 } from '@muso/shared';
 import { ZodValidationPipe } from '../../common/pipes/zod-validation.pipe.js';
 import type { RequestUser } from '../auth/auth.types.js';
 import { CurrentUser } from '../auth/decorators/current-user.decorator.js';
+import { ArcPaymentsService } from './arc.payments.js';
 import { ArcService } from './arc.service.js';
 import { ArcSessionService } from './arc.session.js';
 
@@ -41,7 +43,27 @@ export class ArcController {
   constructor(
     private readonly arc: ArcService,
     private readonly sessions: ArcSessionService,
+    private readonly arcPayments: ArcPaymentsService,
   ) {}
+
+  /** Signed link to MUSO's wallet page, where the fan pays this unlock or tip in USDC on Arc. */
+  @Post('payments/:id/arc/pay-link')
+  @HttpCode(HttpStatus.OK)
+  payLink(
+    @Param('id', uuid) id: string,
+    @CurrentUser() u: RequestUser,
+    @Body(new ZodValidationPipe(ArcLinkRequestSchema)) body: ArcLinkRequest,
+  ): Promise<ArcLink> {
+    return this.sessions.createLink(u, 'pay', body.returnUrl, undefined, undefined, id);
+  }
+
+  /** Back from the wallet: looks for the USDC transfer on-chain if the page didn't report it. */
+  @Post('payments/:id/arc/check')
+  @HttpCode(HttpStatus.OK)
+  @Throttle({ default: { limit: 20, ttl: 60_000 } })
+  payCheck(@Param('id', uuid) id: string, @CurrentUser() u: RequestUser): Promise<PaymentDto> {
+    return this.arcPayments.check(id, u.id);
+  }
 
   /** Signed link to MUSO's wallet page, where the creator connects and verifies a wallet. */
   @Post('me/wallet/connect-link')

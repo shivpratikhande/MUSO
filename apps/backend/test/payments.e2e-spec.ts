@@ -97,6 +97,9 @@ describe('Monetization: pricing, checkout, entitlements, earnings, ledger (e2e)'
       feeBpsTips: 500,
       testMode: true,
       provider: 'sandbox',
+      currency: 'INR',
+      usdcOnArc: true,
+      feeBpsUsdc: 0,
     });
   });
 

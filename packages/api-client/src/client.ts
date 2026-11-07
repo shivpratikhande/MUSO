@@ -14,6 +14,7 @@ import {
   type CreateCheckoutInput,
   type EarningsSummary,
   type PaymentDto,
+  type PaymentsConfig,
   type PricingInput,
   type CreateCommentInput,
   type CreatePostInput,
@@ -314,11 +315,7 @@ export function createApiClient(opts: ApiClientOptions) {
         request<Paginated<PaymentDto>>('GET', '/payments', { query: { cursor } }),
       library: () => request<PostDto[]>('GET', '/library'),
       earnings: () => request<EarningsSummary>('GET', '/earnings'),
-      config: () =>
-        request<{ feeBpsSales: number; feeBpsTips: number; testMode: boolean; provider: string }>(
-          'GET',
-          '/payments/config',
-        ),
+      config: () => request<PaymentsConfig>('GET', '/payments/config'),
       setPricing: (postId: string, body: PricingInput) =>
         request<PostDto>('PATCH', `/posts/${postId}/pricing`, { body }),
       download: (postId: string) => request<{ url: string }>('GET', `/posts/${postId}/download`),
@@ -368,6 +365,12 @@ export function createApiClient(opts: ApiClientOptions) {
       /** Signed link to MUSO's wallet page (fund this pool with USDC on Arc). */
       fundLink: (poolId: string, returnUrl: string) =>
         request<ArcLink>('POST', `/reward-pools/${poolId}/arc/fund-link`, { body: { returnUrl } }),
+      /** Signed link to MUSO's wallet page (pay this unlock or tip in USDC, wallet to wallet). */
+      payLink: (paymentId: string, returnUrl: string) =>
+        request<ArcLink>('POST', `/payments/${paymentId}/arc/pay-link`, { body: { returnUrl } }),
+      /** Back from the wallet: finds the USDC transfer on Arc if the page didn't report it. */
+      payCheck: (paymentId: string) =>
+        request<PaymentDto>('POST', `/payments/${paymentId}/arc/check`),
     },
     rewards: {
       create: (body: CreateRewardPoolInput) =>

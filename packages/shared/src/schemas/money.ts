@@ -1,7 +1,10 @@
 import { z } from 'zod';
 import { UuidSchema } from './common.js';
 
-/** All money is integer minor units (paise). ₹1 = 100. */
+/**
+ * All money is integer minor units: paise for INR (₹1 = 100), cents for USD. On MUSO, USD
+ * always means USDC on Arc (1 USDC = 100 minor units; USDC base units = minor × 10⁴).
+ */
 export const MIN_PRICE_MINOR = 1_000; // ₹10
 export const MAX_PRICE_MINOR = 500_000; // ₹5,000
 export const MIN_TIP_MINOR = 1_000; // ₹10
@@ -9,21 +12,62 @@ export const MAX_TIP_MINOR = 1_000_000; // ₹10,000
 export const TIP_PRESETS_MINOR = [1_000, 2_000, 5_000, 10_000] as const;
 export const PRICE_PRESETS_MINOR = [2_000, 4_900, 9_900, 19_900] as const;
 
+export interface MoneyRules {
+  minPrice: number;
+  maxPrice: number;
+  minTip: number;
+  maxTip: number;
+  defaultPrice: number;
+  tipPresets: readonly number[];
+  pricePresets: readonly number[];
+}
+
+/** Price and tip limits per currency. The server enforces these for the post's currency. */
+export const MONEY_RULES: Record<'INR' | 'USD', MoneyRules> = {
+  INR: {
+    minPrice: MIN_PRICE_MINOR,
+    maxPrice: MAX_PRICE_MINOR,
+    minTip: MIN_TIP_MINOR,
+    maxTip: MAX_TIP_MINOR,
+    defaultPrice: 4_900,
+    tipPresets: TIP_PRESETS_MINOR,
+    pricePresets: PRICE_PRESETS_MINOR,
+  },
+  USD: {
+    minPrice: 50, // 0.50 USDC
+    maxPrice: 10_000, // 100 USDC
+    minTip: 50,
+    maxTip: 20_000,
+    defaultPrice: 100,
+    tipPresets: [50, 100, 200, 500],
+    pricePresets: [100, 200, 500, 1_000],
+  },
+};
+export const moneyRules = (currency: string): MoneyRules =>
+  MONEY_RULES[currency as keyof typeof MONEY_RULES] ?? MONEY_RULES.INR;
+
+/** Display unit for amount inputs, e.g. "₹" or "USDC". */
+export const currencyUnit = (currency: string) =>
+  currency === 'INR' ? '₹' : currency === 'USD' ? 'USDC' : currency;
+
 export function formatMoney(minor: number, currency = 'INR'): string {
   const major = minor / 100;
-  const symbol = currency === 'INR' ? '₹' : currency === 'USD' ? '$' : `${currency} `;
-  return `${symbol}${major.toLocaleString('en-IN', { minimumFractionDigits: minor % 100 ? 2 : 0, maximumFractionDigits: 2 })}`;
+  const digits = { minimumFractionDigits: minor % 100 ? 2 : 0, maximumFractionDigits: 2 };
+  if (currency === 'USD') return `${major.toLocaleString('en-US', digits)} USDC`;
+  const symbol = currency === 'INR' ? '₹' : `${currency} `;
+  return `${symbol}${major.toLocaleString('en-IN', digits)}`;
 }
 
 /** Fee in minor units for a gross amount at `bps` basis points, rounded half-up. */
 export const feeFor = (grossMinor: number, bps: number) =>
   Math.floor((grossMinor * bps + 5_000) / 10_000);
 
+// Widest bounds of any currency; the exact limits for the post's currency are checked server-side.
 const priceMinor = z
   .number()
   .int()
-  .min(MIN_PRICE_MINOR, 'Minimum is ₹10')
-  .max(MAX_PRICE_MINOR, 'Maximum is ₹5,000');
+  .min(MONEY_RULES.USD.minPrice, 'That price is too low')
+  .max(MAX_PRICE_MINOR, 'That price is too high');
 
 export const PricingSchema = z
   .discriminatedUnion('mode', [
@@ -77,8 +121,8 @@ export const CreateCheckoutSchema = z.discriminatedUnion('kind', [
     amountMinor: z
       .number()
       .int()
-      .min(MIN_TIP_MINOR, 'Minimum tip is ₹10')
-      .max(MAX_TIP_MINOR, 'Maximum tip is ₹10,000'),
+      .min(MONEY_RULES.USD.minTip, 'That tip is too small')
+      .max(MAX_TIP_MINOR, 'That tip is too big'),
     message: z.string().trim().max(140).optional(),
     idempotencyKey: UuidSchema,
     returnUrl: z.string().max(500),
@@ -123,6 +167,8 @@ export interface PaymentDto {
   pool: { id: string; title: string } | null;
   createdAt: string;
   succeededAt: string | null;
+  /** USDC payments: the Arc transaction that paid the creator. */
+  txUrl: string | null;
 }
 
 export type EarningStatusDto =
@@ -138,8 +184,25 @@ export interface EarningDto {
   netMinor: number;
   availableAt: string;
   createdAt: string;
+  currency: string;
+  /** USDC payments: the Arc transaction that paid the creator directly. */
+  txUrl: string | null;
   post: { id: string; thumbUrl: string | null } | null;
   from: { displayName: string | null; username: string | null } | null;
+}
+
+/** GET /payments/config. */
+export interface PaymentsConfig {
+  feeBpsSales: number;
+  feeBpsTips: number;
+  testMode: boolean;
+  provider: string;
+  /** Currency of new posts and of the Earnings screen. USD = USDC on Arc. */
+  currency: string;
+  /** True when USD posts are paid in USDC on Arc, wallet to wallet. */
+  usdcOnArc: boolean;
+  /** Fee on USDC payments (creators receive the rest straight to their wallet). */
+  feeBpsUsdc: number;
 }
 
 export interface EarningsSummary {
