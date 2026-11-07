@@ -247,7 +247,7 @@ export class ArkivService {
         AND s.qualifying AND s.status <> 'FLAGGED' AND h.credited_ms > 0 AND s.viewer_id <> p.author_id
         AND h.received_at >= ${pool.startsAt} AND h.received_at < ${pool.endsAt}
         ${
-          pool.humanOnly
+          pool.humanOnly && this.config.get('WORLD_ID_ENABLED', { infer: true })
             ? Prisma.sql`AND EXISTS (SELECT 1 FROM users v WHERE v.id = s.viewer_id AND v.human_verified_at IS NOT NULL)`
             : Prisma.empty
         }`);
@@ -292,7 +292,7 @@ export class ArkivService {
                   BigInt(Math.round(allocs.reduce((a, r) => a + Number(r.qualifiedMs), 0) / 1000)),
                 ),
                 clips: allocs.filter((r) => r.shareMinor > 0).length,
-                humanOnly: pool.humanOnly,
+                humanOnly: pool.humanOnly && this.config.get('WORLD_ID_ENABLED', { infer: true }),
                 ...(pool.arcCampaignId ? { arcCampaign: pool.arcCampaignId } : {}),
                 ...(pool.arcCampaignId && arcContract
                   ? { arcContract: addr(getAddress(arcContract)) }

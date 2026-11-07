@@ -149,7 +149,8 @@ export class PredictionsService {
         minStakeMicro: micro(input.minStakeUsdc),
         maxStakeMicro: micro(input.maxStakeUsdc),
         creatorBps: input.template === 'BEST_CLIP' ? input.creatorSharePct * 100 : 0,
-        humanOnly: input.humanOnly,
+        // Human-only needs World ID; with it off, nobody could ever pick.
+        humanOnly: input.humanOnly && this.config.get('WORLD_ID_ENABLED', { infer: true }),
       },
     });
     // Put it on-chain now; if Arc is slow or down, the worker retries.
@@ -278,7 +279,7 @@ export class PredictionsService {
       minStakeMicro: m.minStakeMicro.toString(),
       maxStakeMicro: m.maxStakeMicro.toString(),
       creatorSharePct: m.creatorBps / 100,
-      humanOnly: m.humanOnly,
+      humanOnly: m.humanOnly && this.config.get('WORLD_ID_ENABLED', { infer: true }),
       totalMicro: total.toString(),
       pickers: picks.reduce((a, p) => a + p._count._all, 0),
       winningOption: m.winningOption,
@@ -314,7 +315,7 @@ export class PredictionsService {
         AND s.qualifying AND s.status <> 'FLAGGED' AND s.viewer_id <> p.author_id
         AND h.credited_ms > 0 AND h.received_at >= ${from} AND h.received_at < ${until}
         ${
-          m.humanOnly
+          m.humanOnly && this.config.get('WORLD_ID_ENABLED', { infer: true })
             ? Prisma.sql`AND EXISTS (SELECT 1 FROM users v WHERE v.id = s.viewer_id AND v.human_verified_at IS NOT NULL)`
             : Prisma.empty
         }
@@ -396,7 +397,7 @@ export class PredictionsService {
         humanVerification: { select: { action: true, nullifier: true } },
       },
     });
-    if (humanOnly && !u.humanVerifiedAt)
+    if (humanOnly && this.config.get('WORLD_ID_ENABLED', { infer: true }) && !u.humanVerifiedAt)
       throw forbidden('This prediction is for verified humans. Verify with World ID first.');
     const v = u.humanVerification;
     return keccak256(

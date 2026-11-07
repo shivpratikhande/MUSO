@@ -79,7 +79,8 @@ export class RewardsService {
         budgetMinor: input.budgetMinor,
         perVideoCapBps: input.perVideoCapBps,
         minQualifiedViewers: input.minQualifiedViewers,
-        humanOnly: input.humanOnly,
+        // Human-only needs World ID; with it off, nobody could ever qualify.
+        humanOnly: input.humanOnly && this.config.get('WORLD_ID_ENABLED', { infer: true }),
         startsAt,
         endsAt,
       },
@@ -137,7 +138,7 @@ export class RewardsService {
             a.shareMinor > 0 ||
             (a.qualifiedViewers >= pool.minQualifiedViewers &&
               a.qualifiedMs > 0n &&
-              !pool.humanOnly),
+              !(pool.humanOnly && this.config.get('WORLD_ID_ENABLED', { infer: true }))),
           needsHuman: false,
           shareMinor: a.shareMinor,
           capped: a.capped,
@@ -410,7 +411,7 @@ export class RewardsService {
       currency: p.currency,
       perVideoCapBps: p.perVideoCapBps,
       minQualifiedViewers: p.minQualifiedViewers,
-      humanOnly: p.humanOnly,
+      humanOnly: p.humanOnly && this.config.get('WORLD_ID_ENABLED', { infer: true }),
       startsAt: p.startsAt.toISOString(),
       endsAt: p.endsAt.toISOString(),
       status: poolStatus(p),

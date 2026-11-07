@@ -1,6 +1,8 @@
 import { Injectable } from '@nestjs/common';
+import { ConfigService } from '@nestjs/config';
 import { Prisma, type RewardPool } from '@muso/database';
 import { splitProportionally } from '@muso/shared';
+import type { Env } from '../../config/env.js';
 import { PrismaService } from '../../database/prisma.service.js';
 
 export interface Standing {
@@ -26,13 +28,18 @@ export interface Standing {
  */
 @Injectable()
 export class RewardStandings {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly config: ConfigService<Env, true>,
+  ) {}
 
   async compute(
     pool: RewardPool,
     until: Date = pool.endsAt,
   ): Promise<{ standings: Standing[]; unallocated: number }> {
     const end = until < pool.endsAt ? until : pool.endsAt;
+    // Human-only rules apply only while World ID is on (nobody can verify otherwise).
+    const humanOnly = pool.humanOnly && this.config.get('WORLD_ID_ENABLED', { infer: true });
     const rows = await this.prisma.$queryRaw<
       {
         post_id: string;
@@ -60,7 +67,7 @@ export class RewardStandings {
           AND s.viewer_id <> e.author_id
           ${
             // Human-only pools pay for verified human attention: only World ID–verified viewers count.
-            pool.humanOnly
+            humanOnly
               ? Prisma.sql`AND EXISTS (SELECT 1 FROM users v WHERE v.id = s.viewer_id AND v.human_verified_at IS NOT NULL)`
               : Prisma.empty
           }
@@ -72,7 +79,7 @@ export class RewardStandings {
 
     const items = rows.map((r) => {
       const qualifiedMs = Number(r.qualified_ms);
-      const needsHuman = pool.humanOnly && !r.human;
+      const needsHuman = humanOnly && !r.human;
       const eligible = r.viewers >= pool.minQualifiedViewers && qualifiedMs > 0 && !needsHuman;
       return {
         needsHuman,
