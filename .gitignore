@@ -36,3 +36,4 @@ packages/contracts/broadcast/*/31337/
 .DS_Store
 *.log
 .idea/
+video/out/

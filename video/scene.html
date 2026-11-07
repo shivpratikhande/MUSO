@@ -1,0 +1,752 @@
+<!doctype html>
+<html>
+<head>
+<meta charset="utf-8" />
+<title>MUSO explainer</title>
+<style>
+  @font-face { font-family: Anton; src: url(assets/fonts/Anton_400Regular.ttf); }
+  @font-face { font-family: Inter; font-weight: 400; src: url(assets/fonts/Inter_400Regular.ttf); }
+  @font-face { font-family: Inter; font-weight: 500; src: url(assets/fonts/Inter_500Medium.ttf); }
+  @font-face { font-family: Inter; font-weight: 600; src: url(assets/fonts/Inter_600SemiBold.ttf); }
+  @font-face { font-family: Inter; font-weight: 800; src: url(assets/fonts/Inter_800ExtraBold.ttf); }
+  @font-face { font-family: Serif; src: url(assets/fonts/InstrumentSerif_400Regular.ttf); }
+  @font-face { font-family: Serif; font-style: italic; src: url(assets/fonts/InstrumentSerif_400Regular_Italic.ttf); }
+  :root {
+    --ink: #171715; --ivory: #F6F3EC; --lime: #D9FF55; --coral: #F16B55; --violet: #9A62F7;
+    --ink80: #2A2A27; --ink60: #3D3D39; --stone: #8A867D; --stoneDark: #5E5B54; --sand: #E6E0D4;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  html, body { width: 1920px; height: 1080px; overflow: hidden; background: var(--ink); }
+  body { font-family: Inter, sans-serif; color: var(--ivory); position: relative; }
+  .abs { position: absolute; }
+  .scene { position: absolute; inset: 0; display: none; overflow: hidden; }
+  canvas.full { position: absolute; inset: 0; width: 1920px; height: 1080px; }
+  .poster { font-family: Anton; text-transform: uppercase; transform: skewX(-8deg); line-height: 1.12; letter-spacing: 0.5px; }
+  .serif { font-family: Serif; }
+  .label { font-weight: 600; font-size: 12px; letter-spacing: 1.2px; text-transform: uppercase; }
+  .hl { background: var(--lime); color: var(--ink); padding: 0 .18em; box-decoration-break: clone; -webkit-box-decoration-break: clone; }
+
+  /* ---- poster surfaces (from the app's tokens) ---- */
+  .card { background: #fff; color: var(--ink); border: 2.5px solid var(--ink); border-radius: 16px; box-shadow: 5px 5px 0 var(--ink); }
+  .card.dark { background: var(--ink80); color: var(--ivory); border-color: var(--ivory); box-shadow: 8px 8px 0 var(--lime); }
+  .pill { display: inline-flex; align-items: center; gap: 6px; border: 2px solid var(--ink); border-radius: 999px; padding: 5px 11px; font-weight: 600; font-size: 12px; letter-spacing: 1.2px; text-transform: uppercase; background: #fff; color: var(--ink); }
+  .pill.lime { background: var(--lime); }
+  .pill.violet { background: var(--violet); color: #fff; }
+  .pill.coral { background: var(--coral); }
+  .btn { position: relative; height: 58px; }
+  .btn .sh { position: absolute; inset: 5px -5px -5px 5px; background: var(--ink); border-radius: 14px; }
+  .btn .face { position: absolute; inset: 0; background: var(--lime); border: 2.5px solid var(--ink); border-radius: 14px; display: flex; align-items: center; justify-content: center; font-family: Anton; font-size: 19px; text-transform: uppercase; color: var(--ink); letter-spacing: .5px; }
+  .btn .face span { transform: skewX(-8deg); }
+
+  /* ---- phone ---- */
+  .phone { position: absolute; width: 430px; height: 900px; border-radius: 62px; background: #0c0c0b; padding: 14px; box-shadow: 18px 18px 0 var(--lime); border: 3px solid var(--ivory); }
+  .phone .screen { position: relative; width: 100%; height: 100%; border-radius: 48px; overflow: hidden; background: var(--ivory); color: var(--ink); }
+  .phone .notch { position: absolute; top: 12px; left: 50%; width: 120px; height: 34px; margin-left: -60px; background: #0c0c0b; border-radius: 20px; z-index: 5; }
+  .status { height: 54px; display: flex; justify-content: space-between; align-items: center; padding: 8px 34px 0; font-weight: 600; font-size: 15px; }
+  .apphead { display: flex; align-items: center; justify-content: space-between; padding: 6px 22px 12px; }
+  .scr { position: absolute; left: 0; right: 0; top: 54px; bottom: 0; padding: 0 22px; }
+  .tabbar { position: absolute; left: 16px; right: 16px; bottom: 18px; height: 64px; border: 2.5px solid var(--ink); border-radius: 20px; background: #fff; box-shadow: 4px 4px 0 var(--ink); display: flex; justify-content: space-around; align-items: center; }
+  .tabbar i { width: 26px; height: 26px; border: 2.5px solid var(--ink); border-radius: 8px; display: block; }
+  .tabbar i.on { background: var(--lime); }
+  .row { display: flex; align-items: center; }
+  .muted { color: var(--stoneDark); }
+  .switch { width: 56px; height: 32px; border-radius: 16px; background: var(--sand); position: relative; border: 2px solid var(--ink); }
+  .switch b { position: absolute; top: 2px; left: 2px; width: 24px; height: 24px; border-radius: 50%; background: #fff; border: 2px solid var(--ink); }
+  .bar { height: 14px; border: 2.5px solid var(--ink); border-radius: 8px; background: #fff; overflow: hidden; }
+  .bar b { display: block; height: 100%; background: var(--lime); border-right: 2.5px solid var(--ink); }
+  .thumb { position: relative; border: 2.5px solid var(--ink); border-radius: 14px; overflow: hidden; }
+  .thumb canvas { position: absolute; inset: 0; width: 100%; height: 100%; }
+  .avatar { border: 2.5px solid var(--ink); border-radius: 50%; display: flex; align-items: center; justify-content: center; font-family: Anton; color: var(--ink); }
+
+  /* ---- logo ---- */
+  .logo { display: inline-flex; align-items: flex-start; transform: skewX(-10deg); }
+  .logo span { font-family: Anton; display: inline-block; }
+  .logo sup { font-weight: 600; margin-top: .2em; margin-left: .05em; display: inline-block; }
+
+  /* ---- motion graphics ---- */
+  .vault { border: 3px solid var(--ivory); border-radius: 22px; background: var(--ink80); box-shadow: 10px 10px 0 var(--lime); }
+  .coin { position: absolute; width: 44px; height: 44px; border-radius: 50%; background: var(--lime); border: 2.5px solid var(--ink); color: var(--ink); font: 800 20px Inter; display: flex; align-items: center; justify-content: center; box-shadow: 0 0 24px rgba(217,255,85,.8); }
+  .stamp { border: 6px solid currentColor; border-radius: 14px; padding: 10px 26px; font-family: Anton; text-transform: uppercase; letter-spacing: 1px; }
+  .mono { font-family: ui-monospace, Menlo, monospace; }
+  #grain { position: absolute; inset: 0; pointer-events: none; opacity: .06; mix-blend-mode: overlay; z-index: 50; }
+  #flash { position: absolute; inset: 0; background: var(--lime); opacity: 0; z-index: 60; pointer-events: none; }
+  #fade { position: absolute; inset: 0; background: #000; opacity: 0; z-index: 70; pointer-events: none; }
+</style>
+</head>
+<body>
+<div id="stage"></div>
+<canvas id="grain" width="960" height="540"></canvas>
+<div id="flash"></div>
+<div id="fade"></div>
+<script>
+/* ======================================================================
+   Deterministic timeline: render(t) draws the frame at t seconds.
+   Cues come from the narration's word timestamps (window.WORDS, injected).
+   ====================================================================== */
+const SCENES = { problem: 0, meet: 12, artists: 26, arc: 34, arkiv: 54, ens: 66, close: 78, end: 86, done: 90 };
+const VO = { problem: 1.6, meet: 12.5, artists: 26.2, arc: 34.5, arkiv: 54.5, ens: 66.5, close: 78.5 };
+const WORDS = window.WORDS || {};
+/** Absolute time of the nth spoken word in a scene that starts with `prefix`. */
+function W(scene, prefix, nth = 0, fallback = 0) {
+  const list = WORDS[scene] || [];
+  let k = 0;
+  for (const [word, start] of list) {
+    if (word.toLowerCase().replace(/[^a-z0-9']/g, '').startsWith(prefix.toLowerCase())) {
+      if (k++ === nth) return VO[scene] + start;
+    }
+  }
+  return VO[scene] + fallback;
+}
+
+const clamp = (x, a = 0, b = 1) => Math.min(b, Math.max(a, x));
+const p = (t, a, d = 0.5) => clamp((t - a) / d);
+const eo = (x) => 1 - Math.pow(1 - x, 3);
+const eio = (x) => (x < 0.5 ? 4 * x * x * x : 1 - Math.pow(-2 * x + 2, 3) / 2);
+const back = (x) => { const c1 = 1.9, c3 = c1 + 1; return x <= 0 ? 0 : x >= 1 ? 1 : 1 + c3 * Math.pow(x - 1, 3) + c1 * Math.pow(x - 1, 2); };
+const spring = (x) => (x <= 0 ? 0 : x >= 2 ? 1 : 1 - Math.exp(-5 * x) * Math.cos(11 * x));
+const lerp = (a, b, x) => a + (b - a) * x;
+const $ = (id) => document.getElementById(id);
+function css(el, o) { if (typeof el === 'string') el = $(el); for (const k in o) el.style[k] = o[k]; return el; }
+/** Pop-in: fade + rise + slight scale. */
+function pop(id, t, at, { d = 0.45, y = 40, s = 0.92, out, outD = 0.3 } = {}) {
+  let x = eo(p(t, at, d));
+  const b = back(p(t, at, d));
+  let o = x;
+  if (out != null) o *= 1 - p(t, out, outD);
+  css(id, { opacity: o, transform: `translateY(${(1 - x) * y}px) scale(${lerp(s, 1, b)})` });
+}
+function rng(seed) { return () => { seed = (seed * 16807) % 2147483647; return (seed - 1) / 2147483646; }; }
+const BEAT = 0.5;
+const money = (v, d = 2) => v.toLocaleString('en-US', { minimumFractionDigits: d, maximumFractionDigits: d });
+
+/* ---------------- concert renderer (canvas) ---------------- */
+const CROWD = (() => {
+  const r = rng(42);
+  const rows = [];
+  for (let row = 0; row < 4; row++) {
+    const people = [];
+    const n = 26 + row * 6;
+    for (let i = 0; i < n; i++) {
+      people.push({ x: (i + r() * 0.8) / n, s: 0.75 + r() * 0.4, ph: r() * 6.28, phone: r() < (row === 0 ? 0.22 : 0.42), hue: r(), tilt: (r() - 0.5) * 0.4 });
+    }
+    rows.push(people);
+  }
+  return rows;
+})();
+const BEAM_COLORS = ['154,98,247', '217,255,85', '241,107,85', '154,98,247', '246,243,236', '217,255,85'];
+
+function drawConcert(cv, t, { energy = 1, seed = 0, zoom = 1, crowdY = 0 } = {}) {
+  const ctx = cv.getContext('2d');
+  const W_ = cv.width, H = cv.height, k = W_ / 1920;
+  ctx.save();
+  ctx.setTransform(1, 0, 0, 1, 0, 0);
+  const bg = ctx.createLinearGradient(0, 0, 0, H);
+  bg.addColorStop(0, '#120d1e'); bg.addColorStop(0.55, '#1d1430'); bg.addColorStop(1, '#0b0a09');
+  ctx.fillStyle = bg; ctx.fillRect(0, 0, W_, H);
+  ctx.translate(W_ / 2, H / 2); ctx.scale(zoom, zoom); ctx.translate(-W_ / 2, -H / 2);
+  // stage glow
+  const g = ctx.createRadialGradient(W_ / 2, H * 0.5, 10, W_ / 2, H * 0.5, W_ * 0.6);
+  g.addColorStop(0, `rgba(154,98,247,${0.45 * energy})`); g.addColorStop(1, 'rgba(0,0,0,0)');
+  ctx.fillStyle = g; ctx.fillRect(0, 0, W_, H);
+  // beams
+  ctx.globalCompositeOperation = 'lighter';
+  for (let i = 0; i < 6; i++) {
+    const ox = W_ * (0.12 + i * 0.152);
+    const ang = Math.sin(t * 0.7 + i * 1.7 + seed) * 0.5;
+    const len = H * 1.3;
+    const spread = 0.13;
+    const col = BEAM_COLORS[(i + seed) % 6];
+    const tx = ox + Math.sin(ang) * len, ty = -20 + Math.cos(ang) * len;
+    const gr = ctx.createLinearGradient(ox, -20, tx, ty);
+    gr.addColorStop(0, `rgba(${col},${0.55 * energy})`); gr.addColorStop(1, 'rgba(0,0,0,0)');
+    ctx.fillStyle = gr;
+    ctx.beginPath(); ctx.moveTo(ox, -20);
+    ctx.lineTo(ox + Math.sin(ang - spread) * len, -20 + Math.cos(ang - spread) * len);
+    ctx.lineTo(ox + Math.sin(ang + spread) * len, -20 + Math.cos(ang + spread) * len);
+    ctx.closePath(); ctx.fill();
+  }
+  // beat strobe
+  const beatPh = (t % BEAT) / BEAT;
+  if (energy > 0.8) { ctx.fillStyle = `rgba(246,243,236,${0.07 * Math.exp(-beatPh * 8) * energy})`; ctx.fillRect(0, 0, W_, H); }
+  ctx.globalCompositeOperation = 'source-over';
+  // crowd rows (back to front)
+  CROWD.forEach((people, row) => {
+    const baseY = H * (0.62 + row * 0.1) + crowdY * k;
+    const sc = k * (0.7 + row * 0.22);
+    const bob = 2 * Math.PI * (t / BEAT);
+    for (const pe of people) {
+      const x = pe.x * W_ * 1.04 - W_ * 0.02;
+      const y = baseY - Math.max(0, Math.sin(bob + pe.ph)) * 10 * sc * energy;
+      const s = sc * pe.s;
+      ctx.fillStyle = row < 2 ? '#0e0b14' : '#050505';
+      if (pe.phone) {
+        const ax = x + 26 * s + pe.tilt * 30 * s, ay = y - 120 * s;
+        ctx.strokeStyle = ctx.fillStyle; ctx.lineWidth = 14 * s; ctx.lineCap = 'round';
+        ctx.beginPath(); ctx.moveTo(x + 18 * s, y + 10 * s); ctx.lineTo(ax, ay + 30 * s); ctx.stroke();
+        ctx.save(); ctx.translate(ax, ay); ctx.rotate(pe.tilt * 0.6);
+        ctx.shadowColor = pe.hue > 0.6 ? 'rgba(217,255,85,.9)' : 'rgba(246,243,236,.9)'; ctx.shadowBlur = 26 * s;
+        ctx.fillStyle = pe.hue > 0.6 ? '#e9ffa0' : '#f6f3ec';
+        ctx.fillRect(-11 * s, -20 * s, 22 * s, 40 * s);
+        ctx.shadowBlur = 0;
+        ctx.fillStyle = '#2b2440'; ctx.fillRect(-8 * s, -16 * s, 16 * s, 27 * s);
+        if (Math.sin(t * 6 + pe.ph * 3) > 0) { ctx.fillStyle = '#F16B55'; ctx.beginPath(); ctx.arc(-4 * s, -12 * s, 2.2 * s, 0, 7); ctx.fill(); }
+        ctx.restore();
+        ctx.fillStyle = row < 2 ? '#0e0b14' : '#050505';
+      }
+      ctx.beginPath(); ctx.arc(x, y - 30 * s, 22 * s, 0, 7); ctx.fill();
+      ctx.beginPath(); ctx.ellipse(x, y + 40 * s, 46 * s, 50 * s, 0, 0, 7); ctx.fill();
+    }
+  });
+  ctx.restore();
+}
+
+/* ---------------- shared builders ---------------- */
+function logoHTML(size, color = 'var(--ink)', id = '') {
+  return `<div class="logo" ${id ? `id="${id}"` : ''} style="color:${color}">${'Muso'.split('').map((c, i) => `<span data-i="${i}" style="font-size:${size}px;line-height:${size * 1.25}px">${c}</span>`).join('')}<sup style="font-size:${size * 0.22}px">TM</sup></div>`;
+}
+function animLogo(id, t, at, size, beat = true) {
+  const el = $(id); if (!el) return;
+  el.querySelectorAll('span').forEach((s, i) => {
+    const x = p(t, at + i * 0.09, 0.5);
+    const drop = (1 - spring(x * 1.4)) * -size * 1.4;
+    let hop = 0;
+    if (beat && t > at + 1.2) { const ph = ((t - at - 1.2 - i * 0.06) % 1) ; hop = ph < 0.16 ? Math.sin(ph / 0.16 * Math.PI) : 0; }
+    css(s, { opacity: clamp(x * 4), transform: `translateY(${drop - hop * size * 0.18}px) rotate(${hop * (i % 2 ? 6 : -6)}deg) scaleY(${1 + hop * 0.1})` });
+  });
+  const sup = el.querySelector('sup');
+  const tm = spring(p(t, at + 0.6, 0.6) * 1.4);
+  css(sup, { opacity: clamp(tm), transform: `scale(${tm}) rotate(${(1 - tm) * -90}deg)` });
+}
+function phoneHTML(id, inner, { x, y, scale = 1, shadow = 'var(--lime)' } = {}) {
+  return `<div class="phone" id="${id}" style="left:${x}px;top:${y}px;transform-origin:center;box-shadow:18px 18px 0 ${shadow}">
+    <div class="screen"><div class="notch"></div>
+      <div class="status"><span>9:41</span><span style="letter-spacing:2px">▮▮▮ ◖</span></div>
+      ${inner}
+    </div></div>`;
+}
+const tabbar = (on = 0) => `<div class="tabbar">${[0, 1, 2, 3, 4].map((i) => `<i class="${i === on ? 'on' : ''}" style="${i === 2 ? 'border-radius:50%;width:34px;height:34px;background:var(--lime)' : ''}"></i>`).join('')}</div>`;
+const thumbs = []; // canvases that show the concert, redrawn every frame they are visible
+function thumbHTML(id, w, h, seed, extra = '') {
+  thumbs.push({ id, seed });
+  return `<div class="thumb" style="width:${w}px;height:${h}px;${extra}"><canvas id="${id}" width="${Math.round(w * 1.4)}" height="${Math.round(h * 1.4)}"></canvas></div>`;
+}
+
+/* ---------------- build the scenes ---------------- */
+const stage = $('stage');
+stage.innerHTML = `
+<!-- 1 · PROBLEM -->
+<section class="scene" id="s-problem">
+  <canvas class="full" id="cv-crowd" width="1920" height="1080"></canvas>
+  <div class="abs" style="inset:0;background:linear-gradient(180deg,rgba(23,23,21,0) 50%,rgba(23,23,21,.85) 100%)"></div>
+  <div class="abs poster" id="p1a" style="left:110px;bottom:250px;font-size:120px;color:var(--ivory)">Every night,</div>
+  <div class="abs poster" id="p1b" style="left:110px;bottom:110px;font-size:120px"><span class="hl">amazing moments.</span></div>
+  <div class="abs" id="p1grid" style="inset:0;display:flex;gap:56px;justify-content:center;align-items:center;background:rgba(23,23,21,.78)">
+    ${[0, 1, 2].map((i) => `<div class="card" id="clip${i}" style="width:340px;padding:12px;background:var(--ivory)">
+      ${thumbHTML('th' + i, 312, 420, i * 2 + 1)}
+      <div class="row" style="justify-content:space-between;margin-top:14px">
+        <span style="font:600 18px Inter">${['@riya.films', '@dj.cam', '@frontrow.k'][i]}</span>
+        <span class="pill"><span id="views${i}">0</span> views</span>
+      </div>
+      <div class="row" style="justify-content:space-between;margin-top:12px;padding:10px 12px;border:2.5px solid var(--ink);border-radius:12px;background:#fff">
+        <span class="label muted">Creator earned</span>
+        <span style="font:800 26px Inter;color:#C9442F">$0.00</span>
+      </div></div>`).join('')}
+  </div>
+  <div class="abs poster" id="p1c" style="left:0;right:0;top:400px;text-align:center;font-size:170px;color:var(--coral);text-shadow:8px 8px 0 var(--ink)">They earn nothing.</div>
+</section>
+
+<!-- 2 · MEET MUSO -->
+<section class="scene" id="s-meet">
+  <div class="abs" id="m-lime" style="inset:0;background:var(--lime)"></div>
+  <div class="abs" id="m-logo-wrap" style="left:50%;top:50%">${logoHTML(260, 'var(--ink)', 'm-logo')}</div>
+  <div class="abs serif" id="m-sub" style="left:0;right:0;top:700px;text-align:center;font-size:56px;color:var(--ink);font-style:italic">fan captures → income</div>
+  <div class="abs" id="m-intro" style="left:130px;top:300px;width:900px"><div class="poster" style="font-size:120px">Fan captures</div><div class="poster" style="font-size:120px;margin-top:22px">→ <span class="hl">income.</span></div></div>
+  <div class="abs" id="m-cap" style="left:130px;top:250px;width:760px">
+    <div class="poster" id="mc1" style="font-size:140px">Post.</div>
+    <div class="poster" id="mc2" style="font-size:140px">Tag.</div>
+    <div class="poster" id="mc3" style="font-size:140px;margin-top:26px"><span class="hl">Get paid.</span></div>
+  </div>
+  ${phoneHTML('m-phone', `
+    <div class="apphead">${logoHTML(34, 'var(--ink)')}<span class="pill lime">Create</span></div>
+    <div class="scr" style="top:118px">
+      <!-- a: pick event -->
+      <div class="abs" id="ma" style="left:22px;right:22px;top:0">
+        <div class="poster" style="font-size:34px">Where are you?</div>
+        <div class="muted" style="font-size:15px;margin:2px 0 16px">Pick the event you're at</div>
+        ${[['Block Party Mumbai', 'Live now', 'lime'], ['Gwei Nights', 'Tonight', ''], ['Carrom Showdown', 'Sun', '']].map(([n, s, c], i) => `
+          <div class="card row" id="ev${i}" style="padding:12px;gap:12px;margin-bottom:14px">
+            ${thumbHTML('evt' + i, 64, 64, i + 3, 'border-radius:12px;flex:none')}
+            <div style="flex:1"><div style="font:600 17px Inter">${n}</div><div class="muted" style="font-size:13px">Mumbai</div></div>
+            <span class="pill ${c}">${c ? '<i style="width:8px;height:8px;border-radius:50%;background:var(--coral);display:inline-block" id="livedot"></i>' : ''}${s}</span>
+          </div>`).join('')}
+      </div>
+      <!-- b: upload -->
+      <div class="abs" id="mb" style="left:22px;right:22px;top:0">
+        <div class="poster" style="font-size:34px">New capture</div>
+        <div style="margin:14px 0 12px">${thumbHTML('upl', 342, 300, 7)}</div>
+        <div class="card" style="padding:12px;font-size:15px">Drop was insane 🔥 <b style="color:var(--violet)">#blockparty</b></div>
+        <div class="row" style="justify-content:space-between;margin:16px 0 8px"><span class="label">Uploading</span><span class="label" id="uplpct">0%</span></div>
+        <div class="bar"><b id="uplbar" style="width:0%"></b></div>
+      </div>
+      <!-- c: tag -->
+      <div class="abs" id="mc" style="left:22px;right:22px;top:0">
+        <div class="poster" style="font-size:34px">Tag the artist</div>
+        <div class="card row" style="padding:12px;margin:14px 0;gap:10px;font-size:16px"><span class="muted">Search lineup…</span></div>
+        ${[['Chain Reaction', 'CR', 'var(--violet)'], ['Gwei Nights', 'GN', 'var(--coral)'], ['Pixel Rohan', 'PR', 'var(--lime)']].map(([n, a, c], i) => `
+          <div class="card row" id="tg${i}" style="padding:10px 12px;gap:12px;margin-bottom:12px">
+            <div class="avatar" style="width:48px;height:48px;background:${c};font-size:18px">${a}</div>
+            <div style="flex:1;font:600 17px Inter">${n}</div>
+            <span class="pill" id="tgp${i}">Tag</span>
+          </div>`).join('')}
+      </div>
+      <!-- d: price -->
+      <div class="abs" id="md" style="left:22px;right:22px;top:0">
+        <div class="poster" style="font-size:34px">How do fans pay?</div>
+        <div class="muted" style="font-size:15px;margin:2px 0 14px">You keep the rights.</div>
+        ${[['Free', 'Anyone can watch'], ['Pay to unlock', '$1.99 to watch in full'], ['Pay what you want', 'Fans choose · min $0.50']].map(([n, s], i) => `
+          <div class="card" id="pr${i}" style="padding:14px 16px;margin-bottom:14px">
+            <div style="font:600 18px Inter">${n}</div><div class="muted" style="font-size:14px">${s}</div>
+          </div>`).join('')}
+        <div class="card row" style="padding:12px 16px;justify-content:space-between">
+          <div><div style="font:600 17px Inter">Tips</div><div class="muted" style="font-size:13px">$1 · $2 · $5 · custom</div></div>
+          <div class="switch" id="tipsw"><b></b></div>
+        </div>
+      </div>
+    </div>
+    ${tabbar(2)}`, { x: 1240, y: 90 })}
+</section>
+
+<!-- 3 · ARTISTS -->
+<section class="scene" id="s-artists">
+  <div class="abs" style="inset:0;background:radial-gradient(circle at 30% 50%,#2a2140 0,#171715 60%)"></div>
+  ${phoneHTML('a-phone', `
+    <div style="height:210px;margin-top:-54px;position:relative">${thumbHTML('cover', 402, 210, 11, 'border:none;border-radius:0')}</div>
+    <div style="padding:0 22px;margin-top:-50px;position:relative">
+      <div class="avatar" style="width:100px;height:100px;background:var(--violet);font-size:40px;color:#fff;box-shadow:4px 4px 0 var(--ink)">CR</div>
+      <div class="poster" style="font-size:40px;margin-top:10px">Chain Reaction</div>
+      <div class="row" style="gap:8px;margin:6px 0 18px"><span class="pill violet">Artist</span><span class="pill">Mumbai</span><span class="pill">Electronic</span></div>
+      <div class="card" style="padding:16px">
+        <div class="label muted" style="margin-bottom:10px">Fan recordings</div>
+        <div class="row" style="gap:14px">
+          <div style="flex:1"><div style="font:600 17px Inter">Fans can earn</div><div class="muted" style="font-size:13px">Let fans sell captures of my sets</div></div>
+          <div class="switch" id="artsw"><b></b></div>
+        </div>
+      </div>
+      <div class="card" style="padding:14px 16px;margin-top:14px">
+        <div class="label muted">Earned by fans from my shows</div>
+        <div style="font:800 30px Inter;margin-top:4px" id="artearn">$0.00</div>
+      </div>
+    </div>
+    ${tabbar(4)}`, { x: 200, y: 90, shadow: 'var(--violet)' })}
+  <div class="abs" style="left:760px;top:150px;width:1060px">
+    <div class="poster" id="ac1" style="font-size:150px">Artists <span class="hl">decide.</span></div>
+    <div class="serif" id="ac2" style="font-size:52px;font-style:italic;margin-top:44px;color:var(--ivory)">Fans earn only from artists who opt in.</div>
+    <div class="card" id="aev" style="margin-top:56px;width:830px;padding:22px 26px;display:flex;gap:22px;align-items:center">
+      ${thumbHTML('aevt', 150, 150, 5, 'flex:none;border-radius:14px')}
+      <div style="flex:1">
+        <div class="row" style="gap:10px"><span class="pill lime">Event</span><span class="muted" style="font-size:16px">Sat · Bandra Fort</span></div>
+        <div class="poster" style="font-size:44px;margin:6px 0 12px">Block Party Mumbai</div>
+        <div class="label muted" style="margin-bottom:8px">Recording policy</div>
+        <div class="row" style="gap:10px">
+          <span class="pill" id="pol0" style="font-size:15px;padding:8px 12px;white-space:nowrap">📷 Photos only</span>
+          <span class="pill" id="pol1" style="font-size:15px;padding:8px 12px;white-space:nowrap">🎥 Video allowed</span>
+          <span class="pill" id="pol2" style="font-size:15px;padding:8px 12px;white-space:nowrap">⛔ No recording</span>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- 4 · ARC -->
+<section class="scene" id="s-arc">
+  <div class="abs" style="inset:0;background:radial-gradient(circle at 50% 40%,#22232a 0,#171715 70%)"></div>
+  <div class="abs" style="inset:0;background-image:radial-gradient(rgba(246,243,236,.08) 1.5px,transparent 1.5px);background-size:40px 40px"></div>
+  <svg class="abs" id="arc-svg" width="1920" height="1080" style="left:0;top:0"></svg>
+  <div class="abs poster" id="arc-title" style="left:90px;top:60px;font-size:84px">Sponsor pools on <span class="hl">Arc</span></div>
+  ${phoneHTML('o-phone', `
+    <div class="apphead">${logoHTML(30)}<span class="pill violet">Organizer</span></div>
+    <div class="scr" style="top:112px">
+      <div class="poster" style="font-size:32px">Reward pool</div>
+      <div class="muted" style="font-size:15px;margin-bottom:14px">Block Party Mumbai · sponsored by Neon Cola</div>
+      <div class="card" style="padding:16px">
+        <div class="label muted">Pool budget</div>
+        <div style="font:800 46px Inter">500 <span style="font-size:24px">USDC</span></div>
+        <div class="muted" style="font-size:14px">Split by verified watch time</div>
+      </div>
+      <div class="btn" id="fundbtn" style="margin-top:22px"><div class="sh"></div><div class="face"><span>Fund with USDC on Arc →</span></div></div>
+      <div class="card row" id="fundok" style="padding:12px 14px;margin-top:22px;gap:10px;font:600 15px Inter"><span class="pill lime">Funded</span> 500 USDC in the contract</div>
+    </div>
+    ${tabbar(3)}`, { x: 120, y: 200, shadow: 'var(--violet)' })}
+  <div class="abs vault" id="vault" style="left:760px;top:330px;width:400px;height:300px;padding:26px">
+    <div class="label" style="color:var(--lime)">Smart contract · Arc</div>
+    <div class="poster" style="font-size:40px;margin-top:6px">RewardCampaigns</div>
+    <div style="font:800 54px Inter;margin-top:18px;color:var(--lime)"><span id="vbal">0.00</span></div>
+    <div class="label" style="color:var(--stone)">USDC held · not by MUSO</div>
+  </div>
+  <div class="abs" id="viewers" style="left:700px;top:760px;width:520px;display:flex;justify-content:space-between">
+    ${[0, 1, 2, 3, 4, 5].map((i) => `<div class="avatar" style="width:64px;height:64px;background:${['var(--lime)', 'var(--violet)', 'var(--coral)', 'var(--ivory)', 'var(--lime)', 'var(--violet)'][i]};font-size:22px;border-color:var(--ivory)" id="vw${i}">👀</div>`).join('')}
+  </div>
+  <div class="abs label" id="vwlab" style="left:700px;top:845px;width:520px;text-align:center;color:var(--stone);font-size:16px">Real viewers · 5-second heartbeats</div>
+  <div class="abs" id="creators" style="left:1340px;top:200px;width:480px">
+    ${[['shiv.beats', 250, 'SB', 'var(--lime)', '4h 10m'], ['pixel.rohan', 166.67, 'PR', 'var(--violet)', '2h 47m'], ['gwei.nights', 83.33, 'GN', 'var(--coral)', '1h 23m']].map(([n, v, a, c, wt], i) => `
+      <div class="card dark row" id="cr${i}" style="padding:18px 20px;gap:16px;margin-bottom:34px">
+        <div class="avatar" style="width:62px;height:62px;background:${c};font-size:22px;border-color:var(--ivory)">${a}</div>
+        <div style="flex:1"><div style="font:600 21px Inter">@${n}</div><div class="label" style="color:var(--stone);margin-top:4px">Watch time <span id="wt${i}">0m</span></div></div>
+        <div style="text-align:right"><div style="font:800 30px Inter;color:var(--lime)" id="cv${i}">0.00</div><div class="label" style="color:var(--stone)">USDC</div></div>
+      </div>`).join('')}
+  </div>
+  <div class="abs" id="gas" style="left:1340px;top:820px"><div class="stamp" style="color:var(--lime);font-size:48px;transform:rotate(-4deg)">Gas paid by MUSO</div></div>
+  <div class="abs" id="coins"></div>
+</section>
+
+<!-- 5 · ARKIV -->
+<section class="scene" id="s-arkiv">
+  <div class="abs" style="inset:0;background:var(--ivory)"></div>
+  <div class="abs" style="inset:0;background-image:linear-gradient(rgba(23,23,21,.06) 2px,transparent 2px),linear-gradient(90deg,rgba(23,23,21,.06) 2px,transparent 2px);background-size:60px 60px"></div>
+  <div class="abs poster" id="k-title" style="left:90px;top:70px;font-size:84px;color:var(--ink)">Proof sponsors <span class="hl">can trust</span></div>
+  <div class="abs card" id="report" style="left:90px;top:240px;width:1000px;padding:34px 38px;box-shadow:12px 12px 0 var(--ink)">
+    <div class="row" style="justify-content:space-between"><span class="label muted">Attention report</span><span class="pill violet">muso.attention-reports</span></div>
+    <div class="poster" style="font-size:46px;margin:8px 0 22px">Block Party Mumbai · Neon Cola pool</div>
+    <div class="row" style="gap:20px;margin-bottom:24px">
+      <div class="card" style="flex:1;padding:16px 18px;background:var(--ivory)"><div class="label muted">Verified viewers</div><div style="font:800 46px Inter" id="kv">0</div></div>
+      <div class="card" style="flex:1;padding:16px 18px;background:var(--ivory)"><div class="label muted">Watch time</div><div style="font:800 46px Inter"><span id="kw">0</span><span style="font-size:22px"> s</span></div></div>
+      <div class="card" style="flex:1;padding:16px 18px;background:var(--lime)"><div class="label">Paid out</div><div style="font:800 46px Inter">500<span style="font-size:22px"> USDC</span></div></div>
+    </div>
+    ${[['@shiv.beats', '50.0%', '250.00', '0x8f2c…a91e'], ['@pixel.rohan', '33.3%', '166.67', '0x41d7…0c3b'], ['@gwei.nights', '16.7%', '83.33', '0xb90e…77f2']].map(([n, s, v, tx], i) => `
+      <div class="row" id="kr${i}" style="padding:12px 0;border-top:2px dashed var(--sand);font-size:21px;gap:16px">
+        <span style="flex:1;font-weight:600">${n}</span><span class="muted" style="width:90px">${s}</span><span style="width:170px;font-weight:800">${v} USDC</span>
+        <span class="pill mono" style="font-size:14px;letter-spacing:0">Arc tx ${tx} ↗</span>
+      </div>`).join('')}
+  </div>
+  <div class="abs" id="kstamp" style="left:1190px;top:150px"><div class="stamp" style="color:var(--violet);font-size:64px;background:rgba(246,243,236,.85)">Read-only · on Arkiv</div></div>
+  <div class="abs" id="kedit" style="left:330px;top:520px;font-size:54px">✏️</div>
+  <div class="abs pill coral" id="kno" style="left:400px;top:470px;font-size:18px;padding:10px 16px">✕ Can't be edited</div>
+  <div class="abs" id="kmuso" style="left:1200px;top:330px;width:640px">
+    <div class="poster" style="font-size:96px;color:var(--ink)">Not even</div>
+    <div style="margin-top:-10px">${logoHTML(130, 'var(--ink)', 'k-logo')}</div>
+  </div>
+  <div class="abs card" id="kquery" style="left:1190px;top:690px;width:660px;padding:22px 24px;background:var(--ink);color:var(--ivory);border-color:var(--ink);box-shadow:10px 10px 0 var(--violet)">
+    <div class="label" style="color:var(--lime);margin-bottom:10px">Anyone can query it</div>
+    <div class="mono" style="font-size:20px;line-height:1.6">arkiv.query(<span style="color:var(--lime)">"muso.attention-reports"</span>)<br>&nbsp;&nbsp;.where(pool = <span style="color:var(--coral)">"neon-cola"</span>)<br><span style="color:var(--stone)">→ 1 report · 3 shares · 3 receipts</span></div>
+  </div>
+  <div class="abs" id="lens" style="left:0;top:0;width:220px;height:220px;border-radius:50%;border:10px solid var(--ink);background:rgba(217,255,85,.18);box-shadow:inset 0 0 0 3px rgba(255,255,255,.6)">
+    <div class="abs" style="width:26px;height:120px;background:var(--ink);border-radius:13px;left:180px;top:170px;transform:rotate(-45deg)"></div>
+  </div>
+</section>
+
+<!-- 6 · ENS -->
+<section class="scene" id="s-ens">
+  <div class="abs" style="inset:0;background:radial-gradient(circle at 50% 40%,#2b2145 0,#171715 65%)"></div>
+  <div class="abs" id="e-user" style="left:0;right:0;top:250px;text-align:center"><span class="poster" style="font-size:170px">@shiv.beats</span></div>
+  <div class="abs" id="e-name" style="left:0;right:0;top:250px;text-align:center;white-space:nowrap"><span class="poster" style="font-size:150px" id="e-typed"></span></div>
+  <div class="abs" id="e-badge" style="left:0;right:0;top:500px;text-align:center"><span class="pill lime" style="font-size:22px;padding:10px 20px">ENS name · free for every creator</span></div>
+  <div class="abs card dark" id="e-wallet" style="left:560px;top:600px;width:800px;padding:26px 30px">
+    <div class="row" style="justify-content:space-between"><span class="label" style="color:var(--lime)">Wallet · Send</span><span class="label" style="color:var(--stone)">Any wallet</span></div>
+    <div style="margin-top:16px;border:2.5px solid var(--ivory);border-radius:14px;padding:14px 18px;font:500 26px Inter"><span class="muted" style="color:var(--stone)">To </span><span id="e-to"></span><span id="e-caret" style="color:var(--lime)">|</span></div>
+    <div class="row" id="e-res" style="gap:10px;margin-top:10px;font:600 18px Inter;color:var(--lime)">✓ <span class="mono">0xE094…77F4</span></div>
+    <div class="row" style="justify-content:space-between;margin-top:18px">
+      <div style="font:800 40px Inter">5.00 <span style="font-size:22px">USDC tip</span></div>
+      <div class="btn" style="width:220px"><div class="sh" style="background:var(--ivory)"></div><div class="face" id="e-send"><span>Send</span></div></div>
+    </div>
+  </div>
+  <div class="abs coin" id="e-coin" style="width:70px;height:70px;font-size:30px">$</div>
+</section>
+
+<!-- 7 · CLOSE -->
+<section class="scene" id="s-close">
+  <canvas class="full" id="cv-crowd2" width="1920" height="1080"></canvas>
+  <div class="abs" style="inset:0;background:linear-gradient(90deg,rgba(23,23,21,.92) 0,rgba(23,23,21,.55) 55%,rgba(23,23,21,.2) 100%)"></div>
+  <div class="abs" style="left:110px;top:230px">
+    <div class="poster" id="c1" style="font-size:118px">Fans create.</div>
+    <div class="poster" id="c2" style="font-size:118px">Artists approve.</div>
+    <div class="poster" id="c3" style="font-size:118px;margin-top:24px"><span class="hl">Sponsors pay</span></div>
+    <div class="poster" id="c4" style="font-size:118px"><span class="hl">for real attention.</span></div>
+  </div>
+  ${phoneHTML('c-phone', `
+    <div class="apphead">${logoHTML(34)}<span class="pill lime">Earnings</span></div>
+    <div class="scr" style="top:118px">
+      <div class="label muted">Total earned</div>
+      <div style="font:800 64px Inter;letter-spacing:-1px">$<span id="ctotal">0.00</span></div>
+      <div class="row" style="gap:8px;margin:6px 0 18px"><span class="pill lime">Available</span><span class="pill">This month</span></div>
+      ${[['Tips', 142.0, 'var(--lime)'], ['Unlocks', 606.6, 'var(--violet)'], ['Watch rewards · Arc', 500.0, 'var(--coral)']].map(([n, v, c], i) => `
+        <div class="card" style="padding:14px 16px;margin-bottom:12px">
+          <div class="row" style="justify-content:space-between"><span style="font:600 17px Inter">${n}</span><span style="font:800 20px Inter">$<span id="cl${i}">0.00</span></span></div>
+          <div class="bar" style="margin-top:10px;height:12px"><b id="cb${i}" style="width:0%;background:${c}"></b></div>
+        </div>`).join('')}
+    </div>
+    ${tabbar(4)}`, { x: 1330, y: 90 })}
+</section>
+
+<!-- 8 · END CARD -->
+<section class="scene" id="s-end">
+  <div class="abs" style="inset:0;background:var(--lime)"></div>
+  <div class="abs" style="left:50%;top:180px;transform:translateX(-50%)">${logoHTML(250, 'var(--ink)', 'end-logo')}</div>
+  <div class="abs serif" id="end-tag" style="left:0;right:0;top:560px;text-align:center;font-size:62px;color:var(--ink);font-style:italic">Capture the moment. Share the experience.<br>Earn from your creativity.</div>
+  <div class="abs" id="end-row" style="left:0;right:0;top:800px;display:flex;justify-content:center;gap:18px">
+    <span class="pill" style="font-size:22px;padding:10px 20px;background:var(--ink);color:var(--lime);border-color:var(--ink)">Built on</span>
+    <span class="pill" style="font-size:22px;padding:10px 20px">Arc</span>
+    <span class="pill" style="font-size:22px;padding:10px 20px">Arkiv</span>
+    <span class="pill" style="font-size:22px;padding:10px 20px">ENS</span>
+  </div>
+  <div class="abs" id="end-url" style="left:0;right:0;top:900px;text-align:center;font:800 40px Inter;color:var(--ink)">musofans.vercel.app</div>
+</section>`;
+
+/* ---------------- grain ---------------- */
+const grainCtx = $('grain').getContext('2d');
+const grainFrames = [];
+{
+  const r = rng(9);
+  for (let f = 0; f < 6; f++) {
+    const img = grainCtx.createImageData(960, 540);
+    for (let i = 0; i < img.data.length; i += 4) { const v = r() * 255; img.data[i] = img.data[i + 1] = img.data[i + 2] = v; img.data[i + 3] = 255; }
+    grainFrames.push(img);
+  }
+}
+
+/* ---------------- per-scene updates ---------------- */
+function sceneProblem(t) {
+  drawConcert($('cv-crowd'), t, { energy: 0.75 + 0.25 * p(t, 0, 4), zoom: 1 + t * 0.012 });
+  const c2 = W('problem', 'that'), end = W('problem', 'earn');
+  pop('p1a', t, W('problem', 'every') - 0.1, { out: c2 - 0.25 });
+  pop('p1b', t, W('problem', 'amazing') - 0.05, { out: c2 - 0.25 });
+  const g = p(t, c2 - 0.15, 0.35);
+  css('p1grid', { opacity: g * (1 - 0.65 * p(t, end - 0.2, 0.4)) });
+  for (let i = 0; i < 3; i++) {
+    pop('clip' + i, t, c2 + i * 0.18, { y: 80 });
+    const v = [1.2e6, 840e3, 2.3e6][i] * eo(p(t, c2 + 0.2 + i * 0.18, 2.4));
+    $('views' + i).textContent = v >= 1e6 ? (v / 1e6).toFixed(1) + 'M' : Math.round(v / 1e3) + 'K';
+  }
+  const x = spring(p(t, end, 0.5) * 1.5);
+  css('p1c', { opacity: clamp(x * 3), transform: `skewX(-8deg) scale(${lerp(1.6, 1, x)})` });
+}
+
+function sceneMeet(t) {
+  const s = SCENES.meet;
+  const it = W('meet', 'it');
+  // logo on lime, then shrink away
+  const out = p(t, it - 0.2, 0.5);
+  css('m-lime', { opacity: 1 - eio(out) });
+  css('m-logo-wrap', { transform: `translate(-50%,-62%) scale(${lerp(1, 0.25, eio(out))}) translateY(${-eio(out) * 1400}px)`, opacity: 1 - p(t, it + 0.1, 0.2) });
+  animLogo('m-logo', t, s + 0.02, 260);
+  pop('m-sub', t, W('meet', 'meet') + 0.5, { out: it - 0.2, outD: 0.2 });
+  // phone slides in
+  const ph = eo(p(t, it, 0.6));
+  css('m-phone', { transform: `translateX(${(1 - ph) * 900}px) rotate(${(1 - ph) * 8}deg)` });
+  const tPost = W('meet', 'post'), tTag = W('meet', 'tag'), tChoose = W('meet', 'choose');
+  pop('mc1', t, tPost, { y: 60 }); pop('mc2', t, tTag, { y: 60 }); pop('mc3', t, tChoose, { y: 60 });
+  css('m-cap', { opacity: p(t, tPost - 0.1, 0.1) });
+  pop('m-intro', t, W('meet', 'turns') - 0.1, { y: 50, out: tPost - 0.35, outD: 0.25 });
+  // screens
+  const scr = [['ma', it], ['mb', tPost - 0.15], ['mc', tTag - 0.15], ['md', tChoose - 0.15], ['zz', 99]];
+  for (let i = 0; i < 4; i++) {
+    const [id, a] = scr[i]; const b = scr[i + 1][1];
+    const inn = eo(p(t, a, 0.35)), o = eo(p(t, b, 0.3));
+    css(id, { opacity: t < a ? 0 : 1 - o, transform: `translateX(${(1 - inn) * 60 - o * 60}px)` });
+  }
+  css('livedot', { opacity: 0.4 + 0.6 * Math.abs(Math.sin(t * 4)) });
+  const tap = it + 1.4;
+  css('ev0', { transform: `translate(${p(t, tap, 0.1) * (1 - p(t, tap + 0.2, 0.15)) * 4}px,${p(t, tap, 0.1) * (1 - p(t, tap + 0.2, 0.15)) * 4}px)`, background: t > tap ? 'var(--lime)' : '#fff' });
+  const up = eio(p(t, tPost + 0.2, 1.6));
+  $('uplbar').style.width = up * 100 + '%';
+  $('uplpct').textContent = up >= 1 ? 'Done ✓' : Math.round(up * 100) + '%';
+  const tg = t > tTag + 0.5;
+  css('tgp0', { background: tg ? 'var(--lime)' : '#fff' }); $('tgp0').textContent = tg ? '✓ Tagged' : 'Tag';
+  css('tg0', { transform: `scale(${1 + 0.05 * Math.sin(Math.PI * p(t, tTag + 0.4, 0.3))})` });
+  const sel = [W('meet', 'choose') + 0.3, W('meet', 'unlock'), W('meet', 'pay', 1), W('meet', 'tips')];
+  let cur = t >= sel[2] ? 2 : t >= sel[1] ? 1 : t >= sel[0] ? 0 : -1;
+  for (let i = 0; i < 3; i++) css('pr' + i, { background: i === cur ? 'var(--lime)' : '#fff', transform: i === cur ? 'translate(-3px,-3px)' : 'none', boxShadow: i === cur ? '8px 8px 0 var(--ink)' : '5px 5px 0 var(--ink)' });
+  const on = eo(p(t, sel[3], 0.25));
+  css('tipsw', { background: on > 0.5 ? 'var(--violet)' : 'var(--sand)' });
+  css($('tipsw').firstElementChild, { transform: `translateX(${on * 24}px)` });
+}
+
+function sceneArtists(t) {
+  const s = SCENES.artists;
+  css('a-phone', { transform: `translateY(${(1 - eo(p(t, s, 0.6))) * 1000}px) rotate(-3deg)` });
+  pop('ac1', t, W('artists', 'artists') - 0.05, { y: 60 });
+  pop('ac2', t, W('artists', 'fans'));
+  const sw = eo(p(t, W('artists', 'opt'), 0.25));
+  css('artsw', { background: sw > 0.5 ? 'var(--violet)' : 'var(--sand)' });
+  css($('artsw').firstElementChild, { transform: `translateX(${sw * 24}px)` });
+  $('artearn').textContent = '$' + money(1248.6 * eo(p(t, W('artists', 'opt') + 0.3, 2.5)));
+  pop('aev', t, W('artists', 'every') - 0.1, { y: 80 });
+  const rec = W('artists', 'recording');
+  const cyc = t < rec ? -1 : Math.floor((t - rec) / 0.35) % 3;
+  for (let i = 0; i < 3; i++) {
+    const on = t >= rec + 1.1 ? i === 1 : i === cyc;
+    css('pol' + i, { background: on ? (i === 2 ? 'var(--coral)' : 'var(--lime)') : '#fff', transform: on ? 'scale(1.08)' : 'none' });
+  }
+}
+
+const ARC_PATHS = {
+  fund: [[540, 560], [650, 520], [760, 480]],
+};
+function bez(pts, x) { // quadratic through 3 points
+  const [a, b, c] = pts; const u = 1 - x;
+  return [u * u * a[0] + 2 * u * x * b[0] + x * x * c[0], u * u * a[1] + 2 * u * x * b[1] + x * x * c[1]];
+}
+function sceneArc(t) {
+  const s = SCENES.arc;
+  pop('arc-title', t, s + 0.1, { y: 30 });
+  css('o-phone', { transform: `translateX(${(1 - eo(p(t, s, 0.6))) * -700}px) scale(.82)`, transformOrigin: 'left top' });
+  const tFund = W('arc', 'fund'), tUsdc = W('arc', 'usdc'), tNot = W('arc', 'not'), tWhen = W('arc', 'when'), tPaid = W('arc', 'paid'), tGas = W('arc', 'creators', 0, 15.6);
+  // button press
+  const pr = p(t, tFund, 0.12) * (1 - p(t, tFund + 0.25, 0.15));
+  css($('fundbtn').querySelector('.face'), { transform: `translate(${pr * 5}px,${pr * 5}px)` });
+  css('fundok', { opacity: p(t, tUsdc + 1.6, 0.3) });
+  pop('vault', t, tFund + 0.3, { y: 50 });
+  // svg lines
+  const svg = $('arc-svg');
+  const glow = (d, o, c = '#D9FF55') => `<path d="${d}" stroke="${c}" stroke-opacity="${o * 0.25}" stroke-width="16" fill="none" stroke-linecap="round"/><path d="${d}" stroke="${c}" stroke-opacity="${o}" stroke-width="4" fill="none" stroke-linecap="round" stroke-dasharray="14 12" stroke-dashoffset="${-t * 60}"/>`;
+  const fundO = p(t, tUsdc - 0.4, 0.4);
+  const split = p(t, tPaid - 0.3, 0.4);
+  const crY = [262, 418, 574];
+  const hb = p(t, tWhen - 0.2, 0.4);
+  svg.innerHTML =
+    glow('M 470 590 Q 640 470 760 480', fundO) +
+    [0, 1, 2, 3, 4, 5].map((i) => glow(`M ${732 + i * 91} 760 L ${760 + i * 80} 640`, hb * 0.6, '#9A62F7')).join('') +
+    crY.map((y) => glow(`M 1160 480 Q 1250 ${y} 1340 ${y}`, split)).join('');
+  // coins flowing into vault
+  let html = '';
+  for (let i = 0; i < 10; i++) {
+    const a = tUsdc + i * 0.32, x = p(t, a, 0.9);
+    if (x > 0 && x < 1) { const [cx, cy] = bez([[470, 590], [640, 470], [760, 480]], eio(x)); html += `<div class="coin" style="left:${cx - 22}px;top:${cy - 22}px;opacity:${clamp(4 * (1 - x))}">$</div>`; }
+  }
+  // heartbeats from viewers up to the vault
+  for (let i = 0; i < 6; i++) for (let k = 0; k < 4; k++) {
+    const a = tWhen + k * 0.5 + i * 0.13, x = p(t, a, 0.7);
+    if (t < tPaid + 0.5 && x > 0 && x < 1) html += `<div class="abs" style="left:${lerp(732 + i * 91, 760 + i * 80, x) - 9}px;top:${lerp(740, 640, x) - 9}px;width:18px;height:18px;border-radius:50%;background:#9A62F7;box-shadow:0 0 18px #9A62F7;opacity:${1 - x}"></div>`;
+  }
+  // coins out to creators (3:2:1)
+  const counts = [6, 4, 2];
+  for (let c = 0; c < 3; c++) for (let i = 0; i < counts[c]; i++) {
+    const a = tPaid + i * 0.25 + c * 0.08, x = p(t, a, 0.8);
+    if (x > 0 && x < 1) { const [cx, cy] = bez([[1160, 480], [1250, crY[c]], [1350, crY[c]]], eio(x)); html += `<div class="coin" style="left:${cx - 22}px;top:${cy - 22}px;opacity:${clamp(4 * (1 - x))}">$</div>`; }
+  }
+  $('coins').innerHTML = html;
+  const fillIn = eo(p(t, tUsdc, 3.4)), drain = eo(p(t, tPaid, 2.2));
+  $('vbal').textContent = money(500 * fillIn * (1 - drain));
+  for (let i = 0; i < 6; i++) pop('vw' + i, t, tWhen - 0.4 + i * 0.08, { y: 30 });
+  css('vwlab', { opacity: p(t, tWhen, 0.4) });
+  const wtTot = [250, 167, 83];
+  for (let i = 0; i < 3; i++) {
+    pop('cr' + i, t, tWhen + 0.2 + i * 0.12, { y: 30 });
+    const m = Math.round(wtTot[i] * eo(p(t, tWhen + 0.5, 3.4)));
+    $('wt' + i).textContent = (m >= 60 ? Math.floor(m / 60) + 'h ' : '') + (m % 60) + 'm';
+    $('cv' + i).textContent = money([250, 166.67, 83.33][i] * eo(p(t, tPaid + 0.5 + i * 0.08, 1.8)));
+  }
+  const g = spring(p(t, tGas - 0.1, 0.5) * 1.5);
+  css('gas', { opacity: clamp(g * 3), transform: `scale(${lerp(2, 1, g)})` });
+}
+
+function sceneArkiv(t) {
+  const s = SCENES.arkiv;
+  pop('k-title', t, s + 0.05);
+  pop('report', t, s + 0.15, { y: 80 });
+  const n = eo(p(t, s + 0.6, 2.2));
+  $('kv').textContent = Math.round(1284 * n).toLocaleString('en-US');
+  $('kw').textContent = Math.round(92410 * n).toLocaleString('en-US');
+  for (let i = 0; i < 3; i++) pop('kr' + i, t, s + 1 + i * 0.15, { y: 20 });
+  const tPub = W('arkiv', 'arkev', 0, 5.04), tNo = W('arkiv', 'no'), tNot = W('arkiv', 'not');
+  const st = spring(p(t, tPub, 0.45) * 1.5);
+  css('kstamp', { opacity: clamp(st * 3), transform: `rotate(-8deg) scale(${lerp(2.4, 1, st)})` });
+  // edit attempt
+  const ed = p(t, tNo - 0.6, 0.7);
+  const shake = t > tNo + 0.1 && t < tNo + 0.7 ? Math.sin(t * 70) * 10 : 0;
+  css('kedit', { opacity: p(t, tNo - 0.7, 0.2) * (1 - p(t, tNot + 0.3, 0.3)), transform: `translate(${lerp(-200, 420, eo(ed)) + shake}px,${lerp(120, 0, eo(ed))}px)` });
+  css('kr0', { transform: `translateX(${shake * 0.6}px)` });
+  pop('kno', t, tNo + 0.1, { out: tNot + 0.6 });
+  pop('kmuso', t, tNot - 0.05, { y: 50 });
+  animLogo('k-logo', t, tNot + 0.15, 130, false);
+  pop('kquery', t, s + 2.4, { y: 40 });
+  // magnifying glass sweeps over the report
+  const lx = eio(p(t, s + 1.8, 3.2)), lo = p(t, s + 1.6, 0.3) * (1 - p(t, tPub - 0.3, 0.3));
+  css('lens', { opacity: lo, transform: `translate(${lerp(140, 820, lx)}px,${lerp(560, 360, lx) + Math.sin(lx * 6) * 30}px)` });
+}
+
+function sceneEns(t) {
+  const s = SCENES.ens;
+  const tName = W('ens', 'name'), tShiv = W('ens', 'shiv'), tEth = W('ens', 'eth'), tTip = W('ens', 'tip');
+  pop('e-user', t, s + 0.1, { y: 40, out: tShiv - 0.2, outD: 0.25 });
+  const full = 'shiv-beats.musoapp.eth';
+  const typed = clamp((t - tShiv + 0.1) / (tEth + 0.4 - tShiv));
+  const nCh = Math.round(full.length * typed);
+  $('e-typed').innerHTML = t < tShiv - 0.1 ? '' : full.slice(0, nCh).replace('.musoapp.eth', '<span style="color:var(--lime)">.musoapp.eth</span>').replace(/\.musoapp(?!\.eth)/, '<span style="color:var(--lime)">.musoapp</span>').replace(/\.muso(?!app)/, '<span style="color:var(--lime)">.muso</span>');
+  const up = eo(p(t, tTip - 1.3, 0.5));
+  css('e-name', { transform: `translateY(${-up * 120}px) scale(${1 - up * 0.3})` });
+  pop('e-badge', t, tName - 0.2, { out: tTip - 1.3 });
+  const w = eo(p(t, tTip - 1.1, 0.5));
+  css('e-wallet', { opacity: w, transform: `translateY(${(1 - w) * 200}px)` });
+  const ty = clamp((t - (tTip - 0.6)) / 1.0);
+  $('e-to').textContent = full.slice(0, Math.round(full.length * ty));
+  css('e-caret', { opacity: Math.floor(t * 3) % 2 ? 1 : 0.2 });
+  css('e-res', { opacity: p(t, tTip + 0.45, 0.2) });
+  const tSend = tTip + 1.25;
+  const pr = p(t, tSend, 0.1) * (1 - p(t, tSend + 0.2, 0.1));
+  css('e-send', { transform: `translate(${pr * 5}px,${pr * 5}px)`, background: t > tSend + 0.15 ? 'var(--ivory)' : 'var(--lime)' });
+  $('e-send').firstElementChild.textContent = t > tSend + 0.15 ? 'Sent ✓' : 'Send';
+  const cx = p(t, tSend + 0.15, 0.9);
+  css('e-coin', { opacity: cx > 0 && cx < 1 ? 1 : 0, left: lerp(1220, 940, eio(cx)) + 'px', top: lerp(780, 150 + 120, eio(cx)) - Math.sin(cx * Math.PI) * 200 + 'px', transform: `rotateY(${cx * 720}deg)` });
+}
+
+function sceneClose(t) {
+  const s = SCENES.close;
+  drawConcert($('cv-crowd2'), t, { energy: 1.15, seed: 2, zoom: 1.05 });
+  const a = [W('close', 'fans'), W('close', 'artists'), W('close', 'sponsors'), W('close', 'attention') - 0.3];
+  ['c1', 'c2', 'c3', 'c4'].forEach((id, i) => pop(id, t, a[i] - 0.05, { y: 50 }));
+  css('c-phone', { transform: `translateY(${(1 - eo(p(t, s, 0.7))) * 1000}px) rotate(3deg)` });
+  const vals = [142, 606.6, 500];
+  let tot = 0;
+  for (let i = 0; i < 3; i++) {
+    const x = eo(p(t, s + 0.6 + i * 0.4, 3.6));
+    tot += vals[i] * x;
+    $('cl' + i).textContent = money(vals[i] * x);
+    $('cb' + i).style.width = (vals[i] / 606.6) * 100 * x + '%';
+  }
+  $('ctotal').textContent = money(tot);
+}
+
+function sceneEnd(t, tLogo) {
+  animLogo('end-logo', t, tLogo, 250);
+  pop('end-tag', t, tLogo + 0.75, { y: 30 });
+  pop('end-row', t, Math.max(tLogo + 1.6, SCENES.end + 0.2), { y: 30 });
+  pop('end-url', t, Math.max(tLogo + 2.0, SCENES.end + 0.5), { y: 20 });
+}
+
+/* ---------------- master ---------------- */
+function render(t) {
+  const tLogoEnd = W('close', 'musso', 0, 5.12) - 0.1; // end card lands on "Muso." in the close
+  const order = [
+    ['problem', 0, SCENES.meet, sceneProblem],
+    ['meet', SCENES.meet, SCENES.artists, sceneMeet],
+    ['artists', SCENES.artists, SCENES.arc, sceneArtists],
+    ['arc', SCENES.arc, SCENES.arkiv, sceneArc],
+    ['arkiv', SCENES.arkiv, SCENES.ens, sceneArkiv],
+    ['ens', SCENES.ens, SCENES.close, sceneEns],
+    ['close', SCENES.close, tLogoEnd, sceneClose],
+    ['end', tLogoEnd, 999, (tt) => sceneEnd(tt, tLogoEnd)],
+  ];
+  for (const [id, a, b, fn] of order) {
+    const on = t >= a && t < b;
+    $('s-' + id).style.display = on ? 'block' : 'none';
+    if (on) {
+      fn(t);
+      for (const th of thumbs) {
+        const cv = $(th.id);
+        if (cv && cv.closest('.scene').id === 's-' + id) drawConcert(cv, t + th.seed * 3, { energy: 1, seed: th.seed, zoom: 1.2 });
+      }
+    }
+  }
+  // lime flash on every cut, stronger on the drops
+  const cuts = [SCENES.meet, SCENES.artists, SCENES.arc, SCENES.arkiv, SCENES.ens, SCENES.close, tLogoEnd];
+  let f = 0;
+  for (const c of cuts) if (t >= c && t < c + 0.25) f = Math.max(f, (1 - (t - c) / 0.25) * (c === SCENES.meet || c === tLogoEnd ? 0 : 0.35));
+  $('flash').style.opacity = f;
+  $('fade').style.opacity = Math.max(1 - p(t, 0, 0.6), p(t, 89.2, 0.8));
+  grainCtx.putImageData(grainFrames[Math.floor(t * 30) % grainFrames.length], 0, 0);
+}
+window.render = render;
+window.ready = document.fonts.ready.then(() => true);
+</script>
+</body>
+</html>

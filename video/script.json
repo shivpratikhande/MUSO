@@ -1,0 +1,33 @@
+{
+  "voice": "aura-2-atlas-en",
+  "scenes": [
+    {
+      "id": "problem",
+      "say": "Every night, fans capture amazing moments at live shows. That content drives the music industry... and the people who shoot it earn nothing."
+    },
+    {
+      "id": "meet",
+      "say": "Meet Moo-so. It turns fan captures into income. Post your shots from the event, tag the artist, and choose how fans pay: unlock, pay what you want, or tips."
+    },
+    {
+      "id": "artists",
+      "say": "Artists decide. Fans can sell captures only of artists who opt in, and every event sets its own recording rules."
+    },
+    {
+      "id": "arc",
+      "say": "Now, sponsors fund reward pools with U.S.D.C. on Arc. The money sits in a smart contract, not with us. When the pool ends, it's split by real, server-verified watch time, and paid straight to each creator's wallet. Creators never pay gas."
+    },
+    {
+      "id": "arkiv",
+      "say": "Sponsors get proof they can trust. Every pool's attention report is published to Arkiv. Read-only, so no one can change it. Not even Moo-so."
+    },
+    {
+      "id": "ens",
+      "say": "Every creator gets a free E.N.S. name, like: shiv beats, dot, Moo-so app, dot, eeth. So anyone can tip them by name, from any wallet."
+    },
+    {
+      "id": "close",
+      "say": "Fans create. Artists approve. Sponsors pay for real attention. Moo-so. Capture the moment, and earn from it."
+    }
+  ]
+}
