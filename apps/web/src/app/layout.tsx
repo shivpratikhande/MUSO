@@ -12,15 +12,29 @@ const serif = Instrument_Serif({
 });
 const inter = Inter({ subsets: ['latin'], variable: '--font-inter', display: 'swap' });
 
+const SITE_URL = 'https://musofans.vercel.app';
+const TITLE = 'MUSO: Film the show. Get paid.';
+const SHARE_DESC = 'Turn concert moments into rewards.';
+const OG_IMAGE = { url: '/og-image.png', width: 1200, height: 630, alt: 'MUSO — Film the show. Get paid.' };
+
 export const metadata: Metadata = {
-  title: 'MUSO: Capture the moment. Earn from it.',
-  description:
-    'MUSO is the creator economy for live events. Fans film the show, publish their clips, and get paid when people unlock, tip or watch them.',
+  metadataBase: new URL(SITE_URL),
+  title: TITLE,
+  description: 'Fans capture live events and earn from unlocks, tips and sponsor-funded USDC reward pools.',
   icons: { icon: '/favicon.svg' },
   openGraph: {
-    title: 'MUSO: Film the show. Get paid.',
-    description: 'Fans capture live events and earn from unlocks, tips and sponsor-funded USDC reward pools.',
+    title: TITLE,
+    description: SHARE_DESC,
+    url: SITE_URL,
+    siteName: 'MUSO',
+    images: [OG_IMAGE],
     type: 'website',
+  },
+  twitter: {
+    card: 'summary_large_image',
+    title: TITLE,
+    description: SHARE_DESC,
+    images: [OG_IMAGE.url],
   },
 };
 
